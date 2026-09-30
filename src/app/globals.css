@@ -1,0 +1,308 @@
+@import "tailwindcss";
+
+:root {
+  /* Dark Mode ("Night-Court Scoreboard" Hero) */
+  --bg-ink: #0B1020;
+  --surface: #121A30;
+  --surface-raised: #1A2440;
+  --hairline: rgba(255, 255, 255, 0.08);
+  --hairline-strong: rgba(255, 255, 255, 0.16);
+
+  /* Single Accent: Shuttle Lime */
+  --accent-lime: #C6FF3D;
+  --accent-ink: #C6FF3D;
+  --motion-ease: cubic-bezier(.22, 1, .36, 1);
+  --accent-lime-muted: rgba(198, 255, 61, 0.12);
+  --accent-lime-hover: #b8f52b;
+  --accent-text-light: #5B8C00;
+
+  /* Outcomes (never rely on colour alone: pair with W/L and +/-) */
+  --color-win: #3DDC97;
+  --color-win-bg: rgba(61, 220, 151, 0.12);
+  --color-loss: #FF5C7A;
+  --color-loss-bg: rgba(255, 92, 122, 0.12);
+
+  /* Typography Colors */
+  --text-main: #F3F6FF;
+  --text-muted: #8F9BB8;
+  --text-subtle: #5A6682;
+}
+
+html.light {
+  --accent-ink: #426700;
+  /* Light Mode */
+  --bg-ink: #F5F7FB;
+  --surface: #FFFFFF;
+  --surface-raised: #E9EEF7;
+  --hairline: rgba(11, 16, 32, 0.08);
+  --hairline-strong: rgba(11, 16, 32, 0.15);
+
+  --accent-lime: #C6FF3D;
+  --accent-lime-muted: rgba(91, 140, 0, 0.12);
+  --accent-lime-hover: #b8f52b;
+  --accent-text-light: #5B8C00;
+
+  --color-win: #159a63;
+  --color-win-bg: rgba(21, 154, 99, 0.1);
+  --color-loss: #e03153;
+  --color-loss-bg: rgba(224, 49, 83, 0.1);
+
+  --text-main: #0B1020;
+  --text-muted: #63708A;
+  --text-subtle: #63708A;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  background-color: var(--bg-ink);
+  color: var(--text-main);
+  font-family: var(--font-body, 'Plus Jakarta Sans', system-ui, sans-serif);
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Sporty Scoreboard Numbers & Tabular Figures */
+.font-sport {
+  font-family: var(--font-sport, 'Barlow Condensed', sans-serif);
+  font-feature-settings: "tnum" 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Cards & Surfaces with 20px Radius and Subtle Inner Borders */
+.court-card {
+  background-color: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+  transition: transform .24s var(--motion-ease), border-color .2s ease, box-shadow .24s ease, background-color .2s ease;
+}
+
+.court-card-raised {
+  background-color: var(--surface-raised);
+  border: 1px solid var(--hairline);
+  border-radius: 20px;
+}
+
+/* Shuttle Lime Button (Primary Action): Text on lime is ALWAYS ink #0B1020 */
+.btn-lime {
+  background-color: var(--accent-lime);
+  color: #0B1020 !important;
+  font-weight: 800;
+  border-radius: 14px;
+  transition: transform 0.1s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+.btn-lime:hover {
+  background-color: var(--accent-lime-hover);
+}
+.btn-lime:active {
+  transform: scale(0.98);
+}
+.btn-lime:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Secondary Neutral Button */
+.btn-secondary {
+  background-color: var(--surface-raised);
+  color: var(--text-main);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  font-weight: 700;
+  transition: all 0.15s ease;
+}
+.btn-secondary:hover {
+  border-color: var(--hairline-strong);
+}
+
+/* Soft Shuttle Lime Glow (Reserved for live / important items) */
+.glow-lime {
+  box-shadow: 0 0 24px rgba(198, 255, 61, 0.22);
+}
+
+.border-lime-active {
+  border-color: var(--accent-lime);
+}
+
+/* Live Pulsing Dot */
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background-color: var(--accent-lime);
+  box-shadow: 0 0 8px var(--accent-lime);
+  animation: pulse-lime 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-lime {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+}
+
+/* Subtle Badminton Court Lines Background Texture (2-3% opacity) */
+.bg-court-texture {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+html.light .bg-court-texture {
+  background-image:
+    linear-gradient(to right, rgba(11, 16, 32, 0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(11, 16, 32, 0.025) 1px, transparent 1px);
+}
+
+/* Court motif header background with singles & doubles lines */
+.court-motif-header {
+  background-color: var(--surface);
+  border-bottom: 1px solid var(--hairline);
+  background-image: radial-gradient(circle at 50% 0%, rgba(198, 255, 61, 0.05) 0%, transparent 60%);
+}
+
+/* Mobile Thumb-Zone Tap Targets (>= 44px) */
+.tap-target {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Floating Bottom Navigation Pill */
+.nav-pill {
+  background: rgba(18, 26, 48, 0.92);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.5);
+  border-radius: 28px;
+}
+
+html.light .nav-pill {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(11, 16, 32, 0.08);
+  box-shadow: 0 16px 36px -4px rgba(11, 16, 32, 0.12);
+}
+
+/* Outcome Chips */
+.chip-win {
+  background-color: var(--color-win-bg);
+  color: var(--color-win);
+  border: 1px solid rgba(61, 220, 151, 0.25);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.chip-loss {
+  background-color: var(--color-loss-bg);
+  color: var(--color-loss);
+  border: 1px solid rgba(255, 92, 122, 0.25);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Skeleton loader without spinners */
+.skeleton-box {
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-raised) 50%, var(--surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s infinite;
+  border-radius: 12px;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Reduced motion respect */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-ink);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--surface-raised);
+  border-radius: 4px;
+}
+
+/* Strivo motion: short entrances and precise feedback without layout shifts. */
+html { overflow-x: clip; overflow-y: auto; scroll-behavior: smooth; scroll-padding-top: 90px; }
+body { margin: 0; min-height: 100dvh; overflow: visible; }
+button, a, input, select, textarea { touch-action: manipulation; }
+button:not(:disabled) { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+input, select, textarea { min-width: 0; accent-color: var(--accent-ink); }
+:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 4px; }
+.app-main:focus { outline: none; }
+.skip-link { position: fixed; left: 16px; top: -80px; z-index: 100; padding: 12px 20px; border-radius: 12px; background: var(--accent-lime); color: #0B1020; font-weight: 700; }
+.skip-link:focus { top: 16px; }
+.page-enter { animation: page-enter .42s var(--motion-ease) both; }
+.page-enter .court-card { animation: card-enter .5s var(--motion-ease) both; }
+.stagger-list > :nth-child(2) { animation-delay: 55ms; }
+.stagger-list > :nth-child(3) { animation-delay: 110ms; }
+.stagger-list > :nth-child(4) { animation-delay: 165ms; }
+.stagger-list > :nth-child(n+5) { animation-delay: 200ms; }
+.animate-in { animation: card-enter .45s var(--motion-ease) both; }
+.animate-shake { animation: notice-enter .25s var(--motion-ease) both; }
+.eyebrow { font-size: 10px; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; color: var(--accent-ink); }
+.brand-link svg { transition: transform .3s var(--motion-ease); }
+.brand-link:hover svg { transform: rotate(-5deg); }
+.strivo-hero { background: #10192B; color: #F3F6FF; min-height: 390px; isolation: isolate; border-color: rgba(198,255,61,.15); }
+.strivo-hero::before { content: ''; position: absolute; inset: 0; z-index: -1; background: radial-gradient(ellipse at 95% 0%, rgba(198,255,61,.1), transparent 65%); }
+.hero-tag { display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: .13em; padding: 7px 10px; border: 1px solid rgba(198,255,61,.25); border-radius: 6px; color: #C6FF3D; background: rgba(198,255,61,.06); }
+.hero-court { position: absolute; width: 46%; max-width: 300px; right: 12px; bottom: 20px; opacity: .8; pointer-events: none; z-index: 0; }
+.hero-court svg { display: block; width: 100%; height: auto; }
+.hero-court-label { font: 7px var(--font-body), sans-serif; letter-spacing: .18em; color: #A9B4CB; display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: -8px; }
+.court-lines { animation: court-reveal .9s var(--motion-ease) both; }
+.court-shuttle { animation: shuttle-reveal 1s var(--motion-ease) both; }
+@keyframes page-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes card-enter { from { opacity: 0; translate: 0 10px; } to { opacity: 1; translate: 0 0; } }
+@keyframes notice-enter { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes court-reveal { from { opacity: 0; } to { opacity: 1; } }
+@keyframes shuttle-reveal { from { opacity: 0; translate: 12px -16px; } to { opacity: 1; translate: 0 0; } }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  a.court-card:hover, a.court-card-raised:hover { transform: translateY(-3px); box-shadow: 0 10px 28px rgba(0,0,0,.1); }
+  .btn-lime:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 5px 16px rgba(198,255,61,.15); }
+  .btn-secondary:not(:disabled):hover { transform: translateY(-1px); }
+}
+@media (max-width: 639px) {
+  .hero-court { width: 45%; right: 8px; bottom: 14px; opacity: .45; }
+  .hero-court-label { display: none; }
+  input, select, textarea { font-size: 16px !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
