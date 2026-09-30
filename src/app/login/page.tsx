@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import { StrivoMark } from '@/components/Brand';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { DEFAULT_USER_PASSWORD } from '@/lib/supabase/config';
 import { errorMessage } from '@/lib/errors';
 import {
   ArrowRight,
@@ -17,8 +16,6 @@ import {
   Mail,
   Eye,
   EyeOff,
-  Sparkles,
-  CheckCircle2,
 } from 'lucide-react';
 
 export default function LoginPage() {
@@ -30,47 +27,38 @@ export default function LoginPage() {
 
   // Sign In State
   const [identifier, setIdentifier] = useState('');
-  const [password, setPassword] = useState(DEFAULT_USER_PASSWORD);
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   // Register State
   const [regUsername, setRegUsername] = useState('');
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
-  const [regPassword, setRegPassword] = useState(DEFAULT_USER_PASSWORD);
+  const [regPassword, setRegPassword] = useState('');
+  const [regShowPassword, setRegShowPassword] = useState(false);
   const [regGender, setRegGender] = useState<'boys' | 'girls'>('boys');
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [infoMsg, setInfoMsg] = useState('');
 
-  // Quick fill demo credentials
-  const fillDemo = (demoUser: string) => {
-    setIdentifier(demoUser);
-    setPassword(DEFAULT_USER_PASSWORD);
-    setErrorMsg('');
-    setInfoMsg(`Filled ${demoUser} credentials (password: ${DEFAULT_USER_PASSWORD})`);
-  };
-
-  // 1. Handle Sign In with Password
+  // 1. Handle Sign In
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanId = identifier.trim();
-    const authPassword = password.trim() || DEFAULT_USER_PASSWORD;
+    const cleanPassword = password.trim();
 
-    if (!cleanId) {
-      setErrorMsg('Please enter your username or email.');
+    if (!cleanId || !cleanPassword) {
+      setErrorMsg('Please enter your username/email and password.');
       return;
     }
 
     setIsLoading(true);
     setErrorMsg('');
-    setInfoMsg('');
 
     try {
-      // Resolve identifier (username -> email)
       let resolvedEmail = cleanId.toLowerCase();
 
+      // If user typed a username instead of email, resolve it
       if (!resolvedEmail.includes('@')) {
         try {
           const res = await fetch('/api/auth/resolve-identifier', {
@@ -89,14 +77,14 @@ export default function LoginPage() {
         }
       }
 
-      // Sign in directly with Supabase password auth
+      // Authenticate directly with Supabase
       const { data, error } = await supabase.auth.signInWithPassword({
         email: resolvedEmail,
-        password: authPassword,
+        password: cleanPassword,
       });
 
       if (error) {
-        throw new Error(error.message || 'Invalid username/email or password.');
+        throw new Error(error.message || 'Invalid username or password.');
       }
 
       if (data.user) {
@@ -110,16 +98,16 @@ export default function LoginPage() {
     }
   };
 
-  // 2. Handle Account Registration (No OTP needed)
+  // 2. Handle Account Registration
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanUsername = regUsername.trim().toLowerCase();
     const cleanName = regName.trim();
     const cleanEmail = regEmail.trim().toLowerCase();
-    const authPassword = regPassword.trim() || DEFAULT_USER_PASSWORD;
+    const cleanPassword = regPassword.trim();
 
     if (!cleanUsername || cleanUsername.length < 3) {
-      setErrorMsg('Username must be at least 3 characters.');
+      setErrorMsg('Username must be 3-20 characters (letters, numbers, underscores).');
       return;
     }
 
@@ -133,9 +121,13 @@ export default function LoginPage() {
       return;
     }
 
+    if (!cleanPassword || cleanPassword.length < 6) {
+      setErrorMsg('Password must be at least 6 characters long.');
+      return;
+    }
+
     setIsLoading(true);
     setErrorMsg('');
-    setInfoMsg('');
 
     try {
       const res = await fetch('/api/auth/register', {
@@ -145,7 +137,7 @@ export default function LoginPage() {
           username: cleanUsername,
           name: cleanName,
           email: cleanEmail,
-          password: authPassword,
+          password: cleanPassword,
           gender: regGender,
         }),
       });
@@ -156,10 +148,10 @@ export default function LoginPage() {
         throw new Error(json.error || 'Failed to create account.');
       }
 
-      // Auto-login immediately upon registration (No OTP needed!)
+      // Immediately establish session via Supabase Auth
       const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
-        password: authPassword,
+        password: cleanPassword,
       });
 
       if (loginError) {
@@ -231,7 +223,7 @@ export default function LoginPage() {
         </button>
       </div>
 
-      {/* Status Notifications */}
+      {/* Error Alert */}
       {errorMsg && (
         <div
           role="alert"
@@ -242,124 +234,75 @@ export default function LoginPage() {
         </div>
       )}
 
-      {infoMsg && (
-        <div
-          role="status"
-          className="p-3.5 rounded-2xl bg-[var(--accent-lime-muted)] border border-[var(--accent-lime)] text-[var(--text-main)] text-xs flex items-center gap-2 mb-4"
-        >
-          <CheckCircle2 className="w-4 h-4 shrink-0 text-[var(--accent-ink)]" />
-          <span>{infoMsg}</span>
-        </div>
-      )}
-
       {/* 1. Sign In Form */}
       {mode === 'signin' && (
-        <div className="space-y-4">
-          <form onSubmit={handleSignIn} className="court-card p-6 shadow-xl space-y-4">
-            <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">
-                Username or Email
-              </label>
-              <div className="relative">
-                <UserIcon className="w-4 h-4 text-[var(--text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  required
-                  aria-label="Username or email"
-                  autoComplete="username"
-                  autoFocus
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="e.g. akshayx06 or arjun_v"
-                  className="w-full tap-target pl-10 pr-3.5 py-2.5 rounded-xl bg-[var(--surface-raised)] border border-[var(--hairline)] text-sm text-[var(--text-main)] placeholder-[var(--text-subtle)] focus:outline-none focus:border-[var(--accent-lime)]"
-                />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
-                  Password
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-main)] flex items-center gap-1"
-                >
-                  {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                  <span>{showPassword ? 'Hide' : 'Show'}</span>
-                </button>
-              </div>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-[var(--text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  aria-label="Password"
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full tap-target pl-10 pr-3.5 py-2.5 rounded-xl bg-[var(--surface-raised)] border border-[var(--hairline)] text-sm text-[var(--text-main)] focus:outline-none focus:border-[var(--accent-lime)]"
-                />
-              </div>
-              <p className="text-[10px] text-[var(--text-muted)] mt-1.5 flex items-center gap-1">
-                <span>Default password for all players:</span>
-                <code className="font-mono text-[var(--accent-ink)] font-bold bg-[var(--surface-raised)] px-1 py-0.5 rounded">
-                  {DEFAULT_USER_PASSWORD}
-                </code>
-              </p>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full tap-target py-3.5 btn-lime flex items-center justify-center gap-2 shadow-lg shadow-[rgba(198,255,61,0.2)] mt-2"
-            >
-              {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin text-[#0B1020]" />
-              ) : (
-                <>
-                  <span className="text-sm font-black uppercase tracking-wider">
-                    Sign In
-                  </span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </form>
-
-          {/* Quick Demo Fill Buttons */}
-          <div className="p-3.5 rounded-2xl bg-[var(--surface)] border border-[var(--hairline)] space-y-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
-              <Sparkles className="w-3 h-3 text-[var(--accent-ink)]" />
-              Quick Fill Demo Accounts:
-            </span>
-            <div className="grid grid-cols-3 gap-1.5">
-              <button
-                type="button"
-                onClick={() => fillDemo('akshayx06')}
-                className="text-[11px] font-bold py-1.5 px-2 rounded-lg bg-[var(--surface-raised)] hover:bg-[var(--surface-sunken)] border border-[var(--hairline)] text-[var(--text-main)] truncate"
-              >
-                👑 Akshay
-              </button>
-              <button
-                type="button"
-                onClick={() => fillDemo('arjun_v')}
-                className="text-[11px] font-bold py-1.5 px-2 rounded-lg bg-[var(--surface-raised)] hover:bg-[var(--surface-sunken)] border border-[var(--hairline)] text-[var(--text-main)] truncate"
-              >
-                🏸 Arjun
-              </button>
-              <button
-                type="button"
-                onClick={() => fillDemo('ananya_s')}
-                className="text-[11px] font-bold py-1.5 px-2 rounded-lg bg-[var(--surface-raised)] hover:bg-[var(--surface-sunken)] border border-[var(--hairline)] text-[var(--text-main)] truncate"
-              >
-                🏸 Ananya
-              </button>
+        <form onSubmit={handleSignIn} className="court-card p-6 shadow-xl space-y-4">
+          <div>
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">
+              Username or Email
+            </label>
+            <div className="relative">
+              <UserIcon className="w-4 h-4 text-[var(--text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                required
+                aria-label="Username or email"
+                autoComplete="username"
+                autoFocus
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="Enter username or email"
+                className="w-full tap-target pl-10 pr-3.5 py-2.5 rounded-xl bg-[var(--surface-raised)] border border-[var(--hairline)] text-sm text-[var(--text-main)] placeholder-[var(--text-subtle)] focus:outline-none focus:border-[var(--accent-lime)]"
+              />
             </div>
           </div>
-        </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                Password
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-main)] flex items-center gap-1"
+              >
+                {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                <span>{showPassword ? 'Hide' : 'Show'}</span>
+              </button>
+            </div>
+            <div className="relative">
+              <Lock className="w-4 h-4 text-[var(--text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                aria-label="Password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full tap-target pl-10 pr-3.5 py-2.5 rounded-xl bg-[var(--surface-raised)] border border-[var(--hairline)] text-sm text-[var(--text-main)] focus:outline-none focus:border-[var(--accent-lime)]"
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full tap-target py-3.5 btn-lime flex items-center justify-center gap-2 shadow-lg shadow-[rgba(198,255,61,0.2)] mt-2"
+          >
+            {isLoading ? (
+              <Loader2 className="w-5 h-5 animate-spin text-[#0B1020]" />
+            ) : (
+              <>
+                <span className="text-sm font-black uppercase tracking-wider">
+                  Sign In
+                </span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
+          </button>
+        </form>
       )}
 
       {/* 2. Create Account Form */}
@@ -382,7 +325,7 @@ export default function LoginPage() {
                 onChange={(e) =>
                   setRegUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20))
                 }
-                placeholder="player_handle"
+                placeholder="username"
                 className="w-full tap-target pl-10 pr-3.5 py-2.5 rounded-xl bg-[var(--surface-raised)] border border-[var(--hairline)] text-sm text-[var(--text-main)] placeholder-[var(--text-subtle)] focus:outline-none focus:border-[var(--accent-lime)]"
               />
             </div>
@@ -398,7 +341,7 @@ export default function LoginPage() {
               aria-label="Full name"
               value={regName}
               onChange={(e) => setRegName(e.target.value)}
-              placeholder="e.g. John Doe"
+              placeholder="Your full name"
               className="w-full tap-target px-3.5 py-2.5 rounded-xl bg-[var(--surface-raised)] border border-[var(--hairline)] text-sm text-[var(--text-main)] placeholder-[var(--text-subtle)] focus:outline-none focus:border-[var(--accent-lime)]"
             />
           </div>
@@ -416,32 +359,39 @@ export default function LoginPage() {
                 autoComplete="email"
                 value={regEmail}
                 onChange={(e) => setRegEmail(e.target.value)}
-                placeholder="player@example.com"
+                placeholder="you@example.com"
                 className="w-full tap-target pl-10 pr-3.5 py-2.5 rounded-xl bg-[var(--surface-raised)] border border-[var(--hairline)] text-sm text-[var(--text-main)] placeholder-[var(--text-subtle)] focus:outline-none focus:border-[var(--accent-lime)]"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">
-              Password
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                Password
+              </label>
+              <button
+                type="button"
+                onClick={() => setRegShowPassword(!regShowPassword)}
+                className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-main)] flex items-center gap-1"
+              >
+                {regShowPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                <span>{regShowPassword ? 'Hide' : 'Show'}</span>
+              </button>
+            </div>
             <div className="relative">
               <Lock className="w-4 h-4 text-[var(--text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
-                type="password"
+                type={regShowPassword ? 'text' : 'password'}
                 required
                 aria-label="Password"
                 autoComplete="new-password"
                 value={regPassword}
                 onChange={(e) => setRegPassword(e.target.value)}
-                placeholder="At least 6 characters"
+                placeholder="Create a password (min. 6 characters)"
                 className="w-full tap-target pl-10 pr-3.5 py-2.5 rounded-xl bg-[var(--surface-raised)] border border-[var(--hairline)] text-sm text-[var(--text-main)] focus:outline-none focus:border-[var(--accent-lime)]"
               />
             </div>
-            <p className="text-[10px] text-[var(--text-muted)] mt-1">
-              Defaulted to <code className="font-mono text-[var(--accent-ink)] font-bold">{DEFAULT_USER_PASSWORD}</code> for instant setup.
-            </p>
           </div>
 
           <div>
@@ -484,16 +434,12 @@ export default function LoginPage() {
             ) : (
               <>
                 <span className="text-sm font-black uppercase tracking-wider">
-                  Create Account & Enter
+                  Create Account
                 </span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
           </button>
-
-          <p className="text-[11px] text-center text-[var(--text-muted)]">
-            No OTP required. Account activates immediately.
-          </p>
         </form>
       )}
     </div>

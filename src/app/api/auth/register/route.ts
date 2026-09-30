@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { DEFAULT_USER_PASSWORD } from '@/lib/supabase/config';
 import { STARTING_LEVEL_RATINGS } from '@/lib/rating/elo';
 
 export async function POST(request: Request) {
@@ -19,7 +18,7 @@ export async function POST(request: Request) {
     const username = (rawUsername || '').trim().toLowerCase();
     const name = (rawName || '').trim();
     const email = (rawEmail || '').trim().toLowerCase();
-    const password = (rawPassword || '').trim() || DEFAULT_USER_PASSWORD;
+    const password = (rawPassword || '').trim();
 
     // Validation
     if (!username || !/^[a-z0-9_]{3,20}$/.test(username)) {
