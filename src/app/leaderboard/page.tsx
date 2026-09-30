@@ -278,13 +278,13 @@ export default function LeaderboardPage() {
                   className="flex-1 flex flex-col items-center text-center group"
                 >
                   <div className="relative mb-2">
-                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden border-2 border-slate-400 bg-[var(--surface-raised)] group-hover:scale-105 transition-transform">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 border-slate-400 bg-[var(--surface-raised)] group-hover:scale-105 transition-transform">
                       <Image
                         width={96}
                         height={96}
                         src={`/avatars/${top3[1].avatar_id || 'cat-02'}.svg`}
                         alt={top3[1].name}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover rounded-full"
                       />
                     </div>
                     <span className="absolute -bottom-2 -right-1 w-6 h-6 rounded-full bg-slate-400 text-[#0B1020] font-sport font-black text-xs flex items-center justify-center shadow-md">
@@ -309,13 +309,13 @@ export default function LeaderboardPage() {
                 >
                   <div className="relative mb-2">
                     <Crown className="w-5 h-5 text-amber-400 mx-auto mb-1 animate-bounce" />
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-[var(--accent-lime)] glow-lime bg-[var(--surface-raised)] group-hover:scale-105 transition-transform">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden border-2 border-[var(--accent-lime)] glow-lime bg-[var(--surface-raised)] group-hover:scale-105 transition-transform">
                       <Image
                         width={96}
                         height={96}
                         src={`/avatars/${top3[0].avatar_id || 'cat-01'}.svg`}
                         alt={top3[0].name}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover rounded-full"
                       />
                     </div>
                     <span className="absolute -bottom-2 -right-1 w-7 h-7 rounded-full bg-[var(--accent-lime)] text-[#0B1020] font-sport font-black text-sm flex items-center justify-center shadow-md">
@@ -340,13 +340,13 @@ export default function LeaderboardPage() {
                   className="flex-1 flex flex-col items-center text-center group"
                 >
                   <div className="relative mb-2">
-                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden border-2 border-amber-600 bg-[var(--surface-raised)] group-hover:scale-105 transition-transform">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 border-amber-600 bg-[var(--surface-raised)] group-hover:scale-105 transition-transform">
                       <Image
                         width={96}
                         height={96}
                         src={`/avatars/${top3[2].avatar_id || 'cat-03'}.svg`}
                         alt={top3[2].name}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover rounded-full"
                       />
                     </div>
                     <span className="absolute -bottom-2 -right-1 w-6 h-6 rounded-full bg-amber-600 text-[#0B1020] font-sport font-black text-xs flex items-center justify-center shadow-md">
@@ -412,7 +412,7 @@ export default function LeaderboardPage() {
                         height={40}
                         src={`/avatars/${player.avatar_id || 'cat-01'}.svg`}
                         alt={player.name}
-                        className="w-10 h-10 rounded-xl bg-[var(--surface-raised)] object-cover"
+                        className="w-10 h-10 rounded-full bg-[var(--surface-raised)] object-cover"
                       />
                       {player.is_admin && (
                         <span

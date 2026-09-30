@@ -273,7 +273,7 @@ export default function OnboardingPage() {
                   key={cat}
                   type="button"
                   onClick={() => setAvatarId(cat)}
-                  className={`relative aspect-square rounded-2xl p-1 bg-[var(--surface-raised)] border-2 transition-all active:scale-95 ${
+                  className={`relative aspect-square rounded-full p-1 bg-[var(--surface-raised)] border-2 transition-all active:scale-95 ${
                     avatarId === cat
                       ? 'border-[var(--accent-lime)] glow-lime scale-105'
                       : 'border-[var(--hairline)] hover:border-[var(--hairline-strong)]'
@@ -282,7 +282,7 @@ export default function OnboardingPage() {
                   <Image width={96} height={96}
                     src={`/avatars/${cat}.svg`}
                     alt="Cat Avatar"
-                    className="w-full h-full object-cover rounded-xl"
+                    className="w-full h-full object-cover rounded-full"
                   />
                   {avatarId === cat && (
                     <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[var(--accent-lime)] text-[#0B1020] flex items-center justify-center text-[10px] font-black shadow-md">

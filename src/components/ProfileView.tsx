@@ -231,12 +231,12 @@ export default function ProfileView({ username }: ProfileViewProps) {
           <div className="court-card p-6 shadow-xl relative overflow-hidden space-y-4">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-4">
-                {/* Cat Avatar in Squircle Frame with Lime Ring */}
-                <div className="w-20 h-20 rounded-3xl overflow-hidden border-2 border-[var(--accent-lime)] glow-lime bg-[var(--surface-raised)] shrink-0">
+                {/* Cat Avatar in Circular Frame with Lime Ring */}
+                <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-[var(--accent-lime)] glow-lime bg-[var(--surface-raised)] shrink-0">
                   <Image width={96} height={96}
                     src={`/avatars/${profile.avatar_id || 'cat-01'}.svg`}
                     alt={profile.name}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover rounded-full"
                   />
                 </div>
 
@@ -667,11 +667,11 @@ export default function ProfileView({ username }: ProfileViewProps) {
                       key={cat}
                       type="button"
                       onClick={() => setEditAvatarId(cat)}
-                      className={`aspect-square rounded-xl p-1 bg-[var(--surface-raised)] border ${
+                      className={`aspect-square rounded-full p-1 bg-[var(--surface-raised)] border ${
                         editAvatarId === cat ? 'border-[var(--accent-lime)] glow-lime' : 'border-[var(--hairline)]'
                       }`}
                     >
-                      <Image width={96} height={96} src={`/avatars/${cat}.svg`} alt="Cat" className="w-full h-full object-cover rounded-lg" />
+                      <Image width={96} height={96} src={`/avatars/${cat}.svg`} alt="Cat" className="w-full h-full object-cover rounded-full" />
                     </button>
                   ))}
                 </div>

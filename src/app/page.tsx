@@ -126,11 +126,11 @@ export default function HomePage() {
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3.5">
                   <div className="relative">
-                    <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-[var(--accent-lime)] glow-lime bg-[var(--surface-raised)]">
+                    <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[var(--accent-lime)] glow-lime bg-[var(--surface-raised)]">
                       <Image width={96} height={96}
                         src={`/avatars/${profile.avatar_id || 'cat-01'}.svg`}
                         alt={profile.name}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover rounded-full"
                       />
                     </div>
                     <span className="absolute -bottom-1 -right-1 text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-full bg-[var(--surface)] border border-[var(--hairline)] text-[var(--accent-ink)]">
@@ -268,7 +268,7 @@ export default function HomePage() {
                   <Image width={96} height={96}
                     src={`/avatars/${nextMatch.entry_a?.player1?.avatar_id || 'cat-01'}.svg`}
                     alt="Player A"
-                    className="w-10 h-10 rounded-xl"
+                    className="w-10 h-10 rounded-full"
                   />
                   <div>
                     <p className="text-xs font-black text-[var(--text-main)] truncate max-w-[100px]">
@@ -296,7 +296,7 @@ export default function HomePage() {
                   <Image width={96} height={96}
                     src={`/avatars/${nextMatch.entry_b?.player1?.avatar_id || 'cat-02'}.svg`}
                     alt="Player B"
-                    className="w-10 h-10 rounded-xl"
+                    className="w-10 h-10 rounded-full"
                   />
                 </div>
               </div>
