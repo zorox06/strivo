@@ -109,17 +109,17 @@ export async function finalizeMatchResult(input: FinalizeMatchInput) {
       players: [
         {
           id: entryA.player1.id,
-          rating: entryA.player1.rating || 1000,
+          rating: entryA.player1.rating || 500,
           matchesPlayed: entryA.player1.matches_played || 0,
-          peakRating: entryA.player1.peak_rating || entryA.player1.rating || 1000,
+          peakRating: entryA.player1.peak_rating || entryA.player1.rating || 500,
         },
         ...(entryA.player2
           ? [
               {
                 id: entryA.player2.id,
-                rating: entryA.player2.rating || 1000,
+                rating: entryA.player2.rating || 500,
                 matchesPlayed: entryA.player2.matches_played || 0,
-                peakRating: entryA.player2.peak_rating || entryA.player2.rating || 1000,
+                peakRating: entryA.player2.peak_rating || entryA.player2.rating || 500,
               },
             ]
           : []),
@@ -130,17 +130,17 @@ export async function finalizeMatchResult(input: FinalizeMatchInput) {
       players: [
         {
           id: entryB.player1.id,
-          rating: entryB.player1.rating || 1000,
+          rating: entryB.player1.rating || 500,
           matchesPlayed: entryB.player1.matches_played || 0,
-          peakRating: entryB.player1.peak_rating || entryB.player1.rating || 1000,
+          peakRating: entryB.player1.peak_rating || entryB.player1.rating || 500,
         },
         ...(entryB.player2
           ? [
               {
                 id: entryB.player2.id,
-                rating: entryB.player2.rating || 1000,
+                rating: entryB.player2.rating || 500,
                 matchesPlayed: entryB.player2.matches_played || 0,
-                peakRating: entryB.player2.peak_rating || entryB.player2.rating || 1000,
+                peakRating: entryB.player2.peak_rating || entryB.player2.rating || 500,
               },
             ]
           : []),

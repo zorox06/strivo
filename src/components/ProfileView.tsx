@@ -61,7 +61,7 @@ export default function ProfileView({ username }: ProfileViewProps) {
       setIsLoading(true);
       try {
         let targetId = username ? undefined : user?.id;
-        let targetRating = ownProfile?.rating ?? 1000;
+        let targetRating = ownProfile?.rating ?? 500;
 
         if (username) {
           const { data: p } = await supabase

@@ -323,9 +323,9 @@ export default function OnboardingPage() {
             </label>
             <div className="space-y-2">
               {[
-                { key: 'beginner', label: 'Beginner', rating: 800, desc: 'Casual games & learning rules' },
-                { key: 'intermediate', label: 'Intermediate', rating: 1000, desc: 'Regular club player with good rallies' },
-                { key: 'advanced', label: 'Advanced', rating: 1200, desc: 'Competitive tournament contender' },
+                { key: 'beginner', label: 'Beginner', rating: 500, desc: 'Casual games & learning rules' },
+                { key: 'intermediate', label: 'Intermediate', rating: 600, desc: 'Regular club player with good rallies' },
+                { key: 'advanced', label: 'Advanced', rating: 700, desc: 'Competitive tournament contender' },
               ].map((lvl) => (
                 <button
                   key={lvl.key}

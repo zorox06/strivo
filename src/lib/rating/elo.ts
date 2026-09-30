@@ -46,10 +46,12 @@ export const PROVISIONAL_MATCH_THRESHOLD = 10;
 export const PROVISIONAL_K = 40;
 export const STANDARD_K = 24;
 
+export const DEFAULT_STARTING_RATING = 500;
+
 export const STARTING_LEVEL_RATINGS = {
-  beginner: 800,
-  intermediate: 1000,
-  advanced: 1200,
+  beginner: 500,
+  intermediate: 600,
+  advanced: 700,
 } as const;
 
 export type PlayerLevel = keyof typeof STARTING_LEVEL_RATINGS;
@@ -172,7 +174,7 @@ export function replayMatches(
 } {
   const state: Record<string, { rating: number; peakRating: number; matchesPlayed: number }> = {};
   for (const [id, data] of Object.entries(initialPlayers)) {
-    const baseRating = data.rating ?? (data.level ? STARTING_LEVEL_RATINGS[data.level] : 1000);
+    const baseRating = data.rating ?? (data.level ? STARTING_LEVEL_RATINGS[data.level] : DEFAULT_STARTING_RATING);
     state[id] = { rating: baseRating, peakRating: baseRating, matchesPlayed: 0 };
   }
 
@@ -182,18 +184,18 @@ export function replayMatches(
     const sideAElo: EloTeam = {
       players: m.sideAPlayerIds.map((id) => ({
         id,
-        rating: state[id]?.rating ?? 1000,
+        rating: state[id]?.rating ?? DEFAULT_STARTING_RATING,
         matchesPlayed: state[id]?.matchesPlayed ?? 0,
-        peakRating: state[id]?.peakRating ?? 1000,
+        peakRating: state[id]?.peakRating ?? DEFAULT_STARTING_RATING,
       })),
     };
 
     const sideBElo: EloTeam = {
       players: m.sideBPlayerIds.map((id) => ({
         id,
-        rating: state[id]?.rating ?? 1000,
+        rating: state[id]?.rating ?? DEFAULT_STARTING_RATING,
         matchesPlayed: state[id]?.matchesPlayed ?? 0,
-        peakRating: state[id]?.peakRating ?? 1000,
+        peakRating: state[id]?.peakRating ?? DEFAULT_STARTING_RATING,
       })),
     };
 

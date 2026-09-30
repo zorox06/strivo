@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { STARTING_LEVEL_RATINGS } from '@/lib/rating/elo';
+import { STARTING_LEVEL_RATINGS, DEFAULT_STARTING_RATING } from '@/lib/rating/elo';
 
 export async function POST(request: Request) {
   try {
@@ -103,7 +103,7 @@ export async function POST(request: Request) {
 
     const userId = authData.user.id;
     const startingRating =
-      STARTING_LEVEL_RATINGS[level as keyof typeof STARTING_LEVEL_RATINGS] || 1000;
+      STARTING_LEVEL_RATINGS[level as keyof typeof STARTING_LEVEL_RATINGS] || DEFAULT_STARTING_RATING;
 
     // Create profile
     const { error: profileError } = await supabaseAdmin.from('profiles').insert({

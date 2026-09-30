@@ -3,9 +3,9 @@ import { calculateMatchRating, getSideRating, getSideK, calculateExpectedScore, 
 
 describe('Badminton Elo Rating Engine', () => {
   it('correctly maps starting level ratings', () => {
-    expect(STARTING_LEVEL_RATINGS.beginner).toBe(800);
-    expect(STARTING_LEVEL_RATINGS.intermediate).toBe(1000);
-    expect(STARTING_LEVEL_RATINGS.advanced).toBe(1200);
+    expect(STARTING_LEVEL_RATINGS.beginner).toBe(500);
+    expect(STARTING_LEVEL_RATINGS.intermediate).toBe(600);
+    expect(STARTING_LEVEL_RATINGS.advanced).toBe(700);
   });
 
   it('calculates singles ratings and provisional K factors', () => {

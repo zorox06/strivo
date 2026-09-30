@@ -479,7 +479,7 @@ export default function TournamentDetailPage({
                               {nameA}
                             </p>
                             <span className="font-sport text-[11px] text-[var(--text-muted)] tabular-nums font-mono">
-                              {m.entry_a?.pair_rating || m.entry_a?.player1?.rating || 1000} Elo
+                              {m.entry_a?.pair_rating || m.entry_a?.player1?.rating || 500} Elo
                               {m.entry_a?.seed && ` • #${m.entry_a.seed}`}
                             </span>
                           </div>
@@ -521,7 +521,7 @@ export default function TournamentDetailPage({
                               {nameB}
                             </p>
                             <span className="font-sport text-[11px] text-[var(--text-muted)] tabular-nums font-mono">
-                              {m.entry_b?.pair_rating || m.entry_b?.player1?.rating || 1000} Elo
+                              {m.entry_b?.pair_rating || m.entry_b?.player1?.rating || 500} Elo
                               {m.entry_b?.seed && ` • #${m.entry_b.seed}`}
                             </span>
                           </div>

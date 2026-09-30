@@ -275,7 +275,7 @@ export default function HomePage() {
                       {nextMatch.entry_a?.player1?.name || 'TBD'}
                     </p>
                     <span className="font-sport text-xs font-bold text-[var(--text-muted)] tabular-nums">
-                      {nextMatch.entry_a?.player1?.rating || 1000} Elo
+                      {nextMatch.entry_a?.player1?.rating || 500} Elo
                     </span>
                   </div>
                 </div>
@@ -290,7 +290,7 @@ export default function HomePage() {
                       {nextMatch.entry_b?.player1?.name || 'TBD'}
                     </p>
                     <span className="font-sport text-xs font-bold text-[var(--text-muted)] tabular-nums">
-                      {nextMatch.entry_b?.player1?.rating || 1000} Elo
+                      {nextMatch.entry_b?.player1?.rating || 500} Elo
                     </span>
                   </div>
                   <Image width={96} height={96}

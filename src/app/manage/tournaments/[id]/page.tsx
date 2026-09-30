@@ -218,7 +218,7 @@ export default function ManageTournamentDetailPage({
       const participants = entries.map((e) => ({
         id: e.id,
         name: e.player1?.name || 'TBD',
-        rating: e.pair_rating || e.player1?.rating || 1000,
+        rating: e.pair_rating || e.player1?.rating || 500,
         seed: e.seed,
         avatar_id: e.player1?.avatar_id,
         username: e.player1?.username,
