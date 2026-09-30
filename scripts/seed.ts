@@ -6,13 +6,14 @@ import { generateKnockoutDraw } from '../src/lib/draws/knockout';
 // Load environment variables from .env.local
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+import {
+  SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY,
+  DEFAULT_USER_PASSWORD,
+} from '../src/lib/supabase/config';
 
-if (!supabaseUrl || !serviceRoleKey) {
-  console.error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local');
-  process.exit(1);
-}
+const supabaseUrl = SUPABASE_URL;
+const serviceRoleKey = SUPABASE_SERVICE_ROLE_KEY;
 
 const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
@@ -21,7 +22,7 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
 // Parse optional --email=... command line argument or use OWNER_EMAIL env
 const args = process.argv.slice(2);
 let ownerEmail = process.env.OWNER_EMAIL || 'akshayx06@badminton.app';
-const ownerPassword = process.env.OWNER_PASSWORD || undefined;
+const ownerPassword = process.env.OWNER_PASSWORD || DEFAULT_USER_PASSWORD;
 
 for (const arg of args) {
   if (arg.startsWith('--email=')) {
@@ -71,7 +72,7 @@ const SAMPLE_PLAYERS: SeedPlayerDef[] = [
   { username: 'maya_c', name: 'Maya Chen', gender: 'girls', level: 'beginner', rating: 770, avatar_id: 'cat-12', bio: 'Excited for first tournament!', phone: '+15552020012', show_phone: true },
 ];
 
-async function ensureAuthUser(email: string, password?: string): Promise<string> {
+async function ensureAuthUser(email: string, password: string = DEFAULT_USER_PASSWORD): Promise<string> {
   // Check if user already exists
   const { data: users, error: listError } = await supabase.auth.admin.listUsers();
   if (listError) {
@@ -144,7 +145,7 @@ async function main() {
   for (const p of SAMPLE_PLAYERS) {
     const email = `${p.username}@sample.badminton.app`;
     try {
-      const authId = await ensureAuthUser(email);
+      const authId = await ensureAuthUser(email, DEFAULT_USER_PASSWORD);
       playerIds[p.username] = authId;
 
       const profileData = {

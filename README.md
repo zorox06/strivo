@@ -9,7 +9,7 @@ A mobile-first web app and PWA for running badminton tournaments with chess-styl
 ## 🚀 Features
 
 - **PWA & Mobile-First**: Installable to home screen on iOS and Android with standalone display, zero horizontal scroll, and tap targets $\ge 44\text{px}$.
-- **Email OTP Authentication**: Passwordless login using 6-digit OTP codes sent to the player's email.
+- **Direct Password Authentication**: Instant sign in and registration with username/email and password without waiting for OTP emails. Default password for seeded accounts is `password123`.
 - **Onboarding & Cat Avatars**: 12 custom mascot cat avatars (`cat-01` to `cat-12`), username verification, and starting skill levels:
   - **Beginner**: 800 Elo
   - **Intermediate**: 1000 Elo

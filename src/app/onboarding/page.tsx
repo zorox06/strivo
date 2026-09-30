@@ -109,8 +109,8 @@ export default function OnboardingPage() {
     try {
       const startingRating = STARTING_LEVEL_RATINGS[level];
 
-      // 1. Insert profile
-      const { error: profileErr } = await supabase.from('profiles').insert({
+      // 1. Upsert profile
+      const { error: profileErr } = await supabase.from('profiles').upsert({
         id: user.id,
         email: user.email!,
         username: username.trim(),
@@ -132,9 +132,9 @@ export default function OnboardingPage() {
         throw profileErr;
       }
 
-      // 2. Insert phone contact in separate protected table
+      // 2. Upsert phone contact in separate protected table
       if (phone.trim() || showPhone) {
-        await supabase.from('player_contacts').insert({
+        await supabase.from('player_contacts').upsert({
           player_id: user.id,
           phone: phone.trim() || null,
           show_phone: showPhone,
