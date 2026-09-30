@@ -26,7 +26,7 @@ export default function OnboardingPage() {
   const [username, setUsername] = useState('');
   const [name, setName] = useState('');
   const [gender, setGender] = useState<'boys' | 'girls'>('boys');
-  const [level, setLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('intermediate');
+  const [level, setLevel] = useState<'beginner' | 'amateur' | 'intermediate' | 'advanced' | 'professional'>('intermediate');
   const [avatarId, setAvatarId] = useState('cat-01');
   const [bio, setBio] = useState('');
   const [phone, setPhone] = useState('');
@@ -107,10 +107,10 @@ export default function OnboardingPage() {
     setErrorMsg('');
 
     try {
-      const startingRating = STARTING_LEVEL_RATINGS[level];
+      const startingRating = 500;
 
       // 1. Upsert profile
-      const { error: profileErr } = await supabase.from('profiles').upsert({
+      let { error: profileErr } = await supabase.from('profiles').upsert({
         id: user.id,
         email: user.email!,
         username: username.trim(),
@@ -124,6 +124,26 @@ export default function OnboardingPage() {
         matches_played: 0,
         is_admin: false,
       });
+
+      // Graceful fallback if database constraint hasn't been migrated yet to accept amateur/professional
+      if (profileErr && profileErr.code === '23514') {
+        const fallbackLevel = level === 'amateur' ? 'beginner' : level === 'professional' ? 'advanced' : level;
+        const res = await supabase.from('profiles').upsert({
+          id: user.id,
+          email: user.email!,
+          username: username.trim(),
+          name: name.trim(),
+          gender,
+          level: fallbackLevel,
+          rating: startingRating,
+          peak_rating: startingRating,
+          avatar_id: avatarId,
+          bio: bio.trim(),
+          matches_played: 0,
+          is_admin: false,
+        });
+        profileErr = res.error;
+      }
 
       if (profileErr) {
         if (profileErr.code === '23505') {
@@ -319,18 +339,20 @@ export default function OnboardingPage() {
         <form onSubmit={handleSubmit} className="court-card p-6 shadow-xl space-y-4">
           <div>
             <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">
-              Starting Level (Initial Elo)
+              Skill Level (Initial Elo: 500)
             </label>
             <div className="space-y-2">
               {[
-                { key: 'beginner', label: 'Beginner', rating: 500, desc: 'Casual games & learning rules' },
-                { key: 'intermediate', label: 'Intermediate', rating: 600, desc: 'Regular club player with good rallies' },
-                { key: 'advanced', label: 'Advanced', rating: 700, desc: 'Competitive tournament contender' },
+                { key: 'beginner', label: 'Beginner', rating: 500, desc: 'Learning basics & casual games' },
+                { key: 'amateur', label: 'Amateur', rating: 500, desc: 'Recreational play & club rallies' },
+                { key: 'intermediate', label: 'Intermediate', rating: 500, desc: 'Regular player with solid fundamentals' },
+                { key: 'advanced', label: 'Advanced', rating: 500, desc: 'Competitive tournament contender' },
+                { key: 'professional', label: 'Professional', rating: 500, desc: 'Elite athlete & high-performance player' },
               ].map((lvl) => (
                 <button
                   key={lvl.key}
                   type="button"
-                  onClick={() => setLevel(lvl.key as 'beginner' | 'intermediate' | 'advanced')}
+                  onClick={() => setLevel(lvl.key as 'beginner' | 'amateur' | 'intermediate' | 'advanced' | 'professional')}
                   className={`w-full p-3 rounded-2xl text-left border flex items-center justify-between transition-all ${
                     level === lvl.key
                       ? 'border-[var(--accent-lime)] bg-[var(--accent-lime-muted)]'

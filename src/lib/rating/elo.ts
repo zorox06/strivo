@@ -50,8 +50,10 @@ export const DEFAULT_STARTING_RATING = 500;
 
 export const STARTING_LEVEL_RATINGS = {
   beginner: 500,
-  intermediate: 600,
-  advanced: 700,
+  amateur: 500,
+  intermediate: 500,
+  advanced: 500,
+  professional: 500,
 } as const;
 
 export type PlayerLevel = keyof typeof STARTING_LEVEL_RATINGS;

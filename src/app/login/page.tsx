@@ -37,6 +37,7 @@ export default function LoginPage() {
   const [regPassword, setRegPassword] = useState('');
   const [regShowPassword, setRegShowPassword] = useState(false);
   const [regGender, setRegGender] = useState<'boys' | 'girls'>('boys');
+  const [regLevel, setRegLevel] = useState<'beginner' | 'amateur' | 'intermediate' | 'advanced' | 'professional'>('intermediate');
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -139,6 +140,7 @@ export default function LoginPage() {
           email: cleanEmail,
           password: cleanPassword,
           gender: regGender,
+          level: regLevel,
         }),
       });
 
@@ -421,6 +423,37 @@ export default function LoginPage() {
               >
                 Girls / Women
               </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">
+              Skill Level
+            </label>
+            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
+              {(
+                [
+                  { key: 'beginner', label: 'Beginner' },
+                  { key: 'amateur', label: 'Amateur' },
+                  { key: 'intermediate', label: 'Intermediate' },
+                  { key: 'advanced', label: 'Advanced' },
+                  { key: 'professional', label: 'Professional' },
+                ] as const
+              ).map((lvl) => (
+                <button
+                  key={lvl.key}
+                  type="button"
+                  onClick={() => setRegLevel(lvl.key)}
+                  className={`py-2 px-1.5 rounded-xl text-[11px] font-bold border transition-all text-center truncate ${
+                    regLevel === lvl.key
+                      ? 'border-[var(--accent-lime)] bg-[var(--accent-lime-muted)] text-[var(--text-main)]'
+                      : 'border-[var(--hairline)] bg-[var(--surface-raised)] text-[var(--text-muted)]'
+                  }`}
+                  title={lvl.label}
+                >
+                  {lvl.label}
+                </button>
+              ))}
             </div>
           </div>
 

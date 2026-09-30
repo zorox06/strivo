@@ -12,7 +12,7 @@ export interface UserProfile {
   gender: 'boys' | 'girls';
   avatar_id: string;
   bio: string;
-  level: 'beginner' | 'intermediate' | 'advanced';
+  level: 'beginner' | 'amateur' | 'intermediate' | 'advanced' | 'professional';
   rating: number;
   peak_rating: number;
   matches_played: number;

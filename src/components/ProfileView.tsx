@@ -49,6 +49,9 @@ export default function ProfileView({ username }: ProfileViewProps) {
   const [editUsername, setEditUsername] = useState('');
   const [editAvatarId, setEditAvatarId] = useState('cat-01');
   const [editBio, setEditBio] = useState('');
+  const [editLevel, setEditLevel] = useState<
+    'beginner' | 'amateur' | 'intermediate' | 'advanced' | 'professional'
+  >('intermediate');
   const [editPhone, setEditPhone] = useState('');
   const [editShowPhone, setEditShowPhone] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
@@ -132,6 +135,7 @@ export default function ProfileView({ username }: ProfileViewProps) {
     setEditUsername(profile.username || '');
     setEditAvatarId(profile.avatar_id || 'cat-01');
     setEditBio(profile.bio || '');
+    setEditLevel(profile.level as 'beginner' | 'amateur' | 'intermediate' | 'advanced' | 'professional' || 'intermediate');
     setEditPhone(profile.phone || '');
     setEditShowPhone(profile.show_phone || false);
     setEditError('');
@@ -147,15 +151,30 @@ export default function ProfileView({ username }: ProfileViewProps) {
     try {
       if (!editName.trim()) throw new Error('Please enter your name.');
       if (!/^[a-z0-9_]{3,20}$/.test(editUsername.trim().toLowerCase())) throw new Error('Username must be 3–20 lowercase letters, numbers, or underscores.');
-      const { error: pErr } = await supabase
+      
+      const updatePayload: Record<string, unknown> = {
+        name: editName.trim(),
+        username: editUsername.trim().toLowerCase(),
+        avatar_id: editAvatarId,
+        bio: editBio.trim(),
+        level: editLevel,
+      };
+
+      let { error: pErr } = await supabase
         .from('profiles')
-        .update({
-          name: editName.trim(),
-          username: editUsername.trim().toLowerCase(),
-          avatar_id: editAvatarId,
-          bio: editBio.trim(),
-        })
+        .update(updatePayload)
         .eq('id', user.id);
+
+      // Graceful fallback if database constraint hasn't been migrated yet to accept amateur/professional
+      if (pErr && pErr.code === '23514') {
+        const fallbackLevel =
+          editLevel === 'amateur' ? 'beginner' : editLevel === 'professional' ? 'advanced' : editLevel;
+        const res = await supabase
+          .from('profiles')
+          .update({ ...updatePayload, level: fallbackLevel })
+          .eq('id', user.id);
+        pErr = res.error;
+      }
 
       if (pErr) throw pErr;
 
@@ -687,6 +706,37 @@ export default function ProfileView({ username }: ProfileViewProps) {
                   onChange={(e) => setEditBio(e.target.value)}
                   className="w-full tap-target px-3 py-2 rounded-xl bg-[var(--surface-raised)] border border-[var(--hairline)] text-xs text-[var(--text-main)]"
                 />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-[var(--text-muted)] mb-1">
+                  Skill Level
+                </label>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {(
+                    [
+                      { key: 'beginner', label: 'Beginner' },
+                      { key: 'amateur', label: 'Amateur' },
+                      { key: 'intermediate', label: 'Inter' },
+                      { key: 'advanced', label: 'Adv' },
+                      { key: 'professional', label: 'Pro' },
+                    ] as const
+                  ).map((lvl) => (
+                    <button
+                      key={lvl.key}
+                      type="button"
+                      onClick={() => setEditLevel(lvl.key)}
+                      className={`py-2 px-1 rounded-xl text-[10px] font-bold border transition-all text-center truncate ${
+                        editLevel === lvl.key
+                          ? 'border-[var(--accent-lime)] bg-[var(--accent-lime-muted)] text-[var(--text-main)] font-black'
+                          : 'border-[var(--hairline)] bg-[var(--surface-raised)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                      }`}
+                      title={lvl.key}
+                    >
+                      {lvl.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>

@@ -102,17 +102,18 @@ export async function POST(request: Request) {
     }
 
     const userId = authData.user.id;
-    const startingRating =
-      STARTING_LEVEL_RATINGS[level as keyof typeof STARTING_LEVEL_RATINGS] || DEFAULT_STARTING_RATING;
+    const startingRating = DEFAULT_STARTING_RATING;
+    const validLevels = ['beginner', 'amateur', 'intermediate', 'advanced', 'professional'];
+    const chosenLevel = validLevels.includes(level) ? level : 'intermediate';
 
     // Create profile
-    const { error: profileError } = await supabaseAdmin.from('profiles').insert({
+    let { error: profileError } = await supabaseAdmin.from('profiles').insert({
       id: userId,
       email,
       username,
       name,
       gender: gender === 'girls' ? 'girls' : 'boys',
-      level: ['beginner', 'intermediate', 'advanced'].includes(level) ? level : 'intermediate',
+      level: chosenLevel,
       rating: startingRating,
       peak_rating: startingRating,
       avatar_id: avatarId || 'cat-01',
@@ -120,6 +121,26 @@ export async function POST(request: Request) {
       matches_played: 0,
       is_admin: false,
     });
+
+    // Graceful fallback if database check constraint is still ('beginner', 'intermediate', 'advanced')
+    if (profileError && profileError.code === '23514') {
+      const fallbackLevel = chosenLevel === 'amateur' ? 'beginner' : chosenLevel === 'professional' ? 'advanced' : chosenLevel;
+      const res = await supabaseAdmin.from('profiles').insert({
+        id: userId,
+        email,
+        username,
+        name,
+        gender: gender === 'girls' ? 'girls' : 'boys',
+        level: fallbackLevel,
+        rating: startingRating,
+        peak_rating: startingRating,
+        avatar_id: avatarId || 'cat-01',
+        bio: '',
+        matches_played: 0,
+        is_admin: false,
+      });
+      profileError = res.error;
+    }
 
     if (profileError) {
       console.error('Error inserting profile during registration:', profileError);

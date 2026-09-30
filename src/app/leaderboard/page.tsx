@@ -40,7 +40,9 @@ export default function LeaderboardPage() {
 
   const [players, setPlayers] = useState<LeaderboardPlayer[]>([]);
   const [filterGender, setFilterGender] = useState<'all' | 'boys' | 'girls'>('all');
-  const [filterLevel, setFilterLevel] = useState<'all' | 'beginner' | 'intermediate' | 'advanced'>('all');
+  const [filterLevel, setFilterLevel] = useState<
+    'all' | 'beginner' | 'amateur' | 'intermediate' | 'advanced' | 'professional'
+  >('all');
   const [sortBy, setSortBy] = useState<SortOption>('rating');
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -230,7 +232,7 @@ export default function LeaderboardPage() {
           <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] flex items-center gap-1 mr-1 shrink-0">
             <Filter className="w-3 h-3" /> Tier:
           </span>
-          {(['all', 'beginner', 'intermediate', 'advanced'] as const).map((lvl) => (
+          {(['all', 'beginner', 'amateur', 'intermediate', 'advanced', 'professional'] as const).map((lvl) => (
             <button
               key={lvl}
               onClick={() => setFilterLevel(lvl)}
