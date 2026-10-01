@@ -10,7 +10,7 @@ import React, { useEffect, useState, use, useCallback } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { Swords, UserPlus, Play, CheckCircle2, AlertCircle, Loader2, Edit2, ExternalLink, ArrowLeft, Sparkles, Maximize2, Search } from 'lucide-react';
+import { Swords, UserPlus, Play, CheckCircle2, AlertCircle, Loader2, Edit2, ExternalLink, ArrowLeft, Sparkles, Maximize2, Search, Trash2, X, Plus } from 'lucide-react';
 import { generateKnockoutDraw, type KnockoutDrawResult, type KnockoutMatchNode } from '@/lib/draws/knockout';
 import { SetScore, MatchRules } from '@/lib/match/rules';
 import { evaluateSheetMatch, formatMatchupInfo } from '@/lib/match/scoring';
@@ -38,8 +38,17 @@ export default function ManageTournamentDetailPage({
   // Add player form
   const [searchUsername, setSearchUsername] = useState('');
   const [foundPlayer, setFoundPlayer] = useState<Player | null>(null);
+  const [searchUsername2, setSearchUsername2] = useState('');
+  const [foundPlayer2, setFoundPlayer2] = useState<Player | null>(null);
   const [searchError, setSearchError] = useState('');
   const [isAdding, setIsAdding] = useState(false);
+
+  // Assign Player 2 state for existing solo entry
+  const [assigningEntryId, setAssigningEntryId] = useState<string | null>(null);
+  const [assignSearchUsername, setAssignSearchUsername] = useState('');
+  const [assignFoundPlayer, setAssignFoundPlayer] = useState<Player | null>(null);
+  const [assignError, setAssignError] = useState('');
+  const [isAssigning, setIsAssigning] = useState(false);
 
   // Draw generation state
   const [drawPreview, setDrawPreview] = useState<KnockoutDrawResult | null>(null);
@@ -130,12 +139,11 @@ export default function ManageTournamentDetailPage({
 
   const selectedCategory = categories.find((c) => c.id === selectedCategoryId);
 
-  // Search player by username and validate gender
+  // Search player 1 by username and validate gender
   const handleSearchPlayer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchUsername.trim() || !selectedCategory) return;
     setSearchError('');
-    setFoundPlayer(null);
 
     const usernameClean = searchUsername.trim().toLowerCase().replace('@', '');
 
@@ -150,6 +158,11 @@ export default function ManageTournamentDetailPage({
       return;
     }
 
+    if (foundPlayer2 && p.id === foundPlayer2.id) {
+      setSearchError('Player 1 and Player 2 cannot be the same player.');
+      return;
+    }
+
     if (selectedCategory.gender !== 'mixed' && p.gender !== selectedCategory.gender) {
       setSearchError(
         `Player @${usernameClean} is registered as ${p.gender}, but this category requires ${selectedCategory.gender}.`
@@ -157,8 +170,13 @@ export default function ManageTournamentDetailPage({
       return;
     }
 
+    if (selectedCategory.gender === 'mixed' && foundPlayer2 && p.gender === foundPlayer2.gender) {
+      setSearchError('Mixed doubles requires one boy and one girl.');
+      return;
+    }
+
     const alreadyIn = entries.some(
-      (e) => e.player1?.id === p.id || e.player2?.id === p.id
+      (entry) => entry.player1?.id === p.id || entry.player2?.id === p.id
     );
     if (alreadyIn) {
       setSearchError(`@${usernameClean} is already registered in this category.`);
@@ -168,21 +186,75 @@ export default function ManageTournamentDetailPage({
     setFoundPlayer(p as unknown as Player);
   };
 
-  // Add player entry
-  const handleAddPlayer = async () => {
+  // Search player 2 (for doubles categories)
+  const handleSearchPlayer2 = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchUsername2.trim() || !selectedCategory) return;
+    setSearchError('');
+
+    const usernameClean = searchUsername2.trim().toLowerCase().replace('@', '');
+
+    const { data: p } = await supabase
+      .from('profiles')
+      .select('id, username, name, gender, avatar_id, rating, level')
+      .eq('username', usernameClean)
+      .maybeSingle();
+
+    if (!p) {
+      setSearchError(`No player found with username @${usernameClean}`);
+      return;
+    }
+
+    if (foundPlayer && p.id === foundPlayer.id) {
+      setSearchError('Player 1 and Player 2 cannot be the same player.');
+      return;
+    }
+
+    if (selectedCategory.gender !== 'mixed' && p.gender !== selectedCategory.gender) {
+      setSearchError(
+        `Player @${usernameClean} is registered as ${p.gender}, but this category requires ${selectedCategory.gender}.`
+      );
+      return;
+    }
+
+    if (selectedCategory.gender === 'mixed' && foundPlayer && p.gender === foundPlayer.gender) {
+      setSearchError('Mixed doubles requires one boy and one girl.');
+      return;
+    }
+
+    const alreadyIn = entries.some(
+      (entry) => entry.player1?.id === p.id || entry.player2?.id === p.id
+    );
+    if (alreadyIn) {
+      setSearchError(`@${usernameClean} is already registered in this category.`);
+      return;
+    }
+
+    setFoundPlayer2(p as unknown as Player);
+  };
+
+  // Add player entry (supports doubles pair or solo)
+  const handleAddPlayer = async (forceSolo = false) => {
     if (!foundPlayer || !selectedCategory || !tournament || !user) return;
     setIsAdding(true);
     setSearchError('');
 
     try {
       const nextSeed = entries.length + 1;
+      const isDoubles = selectedCategory.type === 'doubles';
+      const hasPlayer2 = isDoubles && !forceSolo && !!foundPlayer2;
+
+      const pairRating = hasPlayer2 && foundPlayer2
+        ? Math.round((foundPlayer.rating + foundPlayer2.rating) / 2)
+        : foundPlayer.rating;
 
       const { error: insErr } = await supabase.from('entries').insert({
         category_id: selectedCategory.id,
         player1_id: foundPlayer.id,
+        player2_id: hasPlayer2 && foundPlayer2 ? foundPlayer2.id : null,
         seed: nextSeed,
-        pair_rating: foundPlayer.rating,
-        is_solo: true,
+        pair_rating: pairRating,
+        is_solo: !hasPlayer2,
       });
 
       if (insErr) throw insErr;
@@ -193,17 +265,131 @@ export default function ManageTournamentDetailPage({
         actor_id: user.id,
         details: {
           categoryName: selectedCategory.name,
-          playerUsername: foundPlayer.username,
+          player1Username: foundPlayer.username,
+          player2Username: hasPlayer2 && foundPlayer2 ? foundPlayer2.username : null,
+          isSolo: !hasPlayer2,
         },
       });
 
       setFoundPlayer(null);
+      setFoundPlayer2(null);
       setSearchUsername('');
+      setSearchUsername2('');
       await refreshCategoryData();
     } catch (err: unknown) {
       setSearchError(errorMessage(err, 'Failed to add entry.'));
     } finally {
       setIsAdding(false);
+    }
+  };
+
+  // Search partner to assign to an existing solo entry
+  const handleSearchAssignPartner = async (e: React.FormEvent, targetEntry: Entry) => {
+    e.preventDefault();
+    if (!assignSearchUsername.trim() || !selectedCategory) return;
+    setAssignError('');
+    setAssignFoundPlayer(null);
+
+    const usernameClean = assignSearchUsername.trim().toLowerCase().replace('@', '');
+
+    const { data: p } = await supabase
+      .from('profiles')
+      .select('id, username, name, gender, avatar_id, rating, level')
+      .eq('username', usernameClean)
+      .maybeSingle();
+
+    if (!p) {
+      setAssignError(`No player found with username @${usernameClean}`);
+      return;
+    }
+
+    if (p.id === targetEntry.player1?.id) {
+      setAssignError('Partner cannot be the same as Player 1.');
+      return;
+    }
+
+    if (selectedCategory.gender !== 'mixed' && p.gender !== selectedCategory.gender) {
+      setAssignError(
+        `Partner must be ${selectedCategory.gender}, but @${usernameClean} is ${p.gender}.`
+      );
+      return;
+    }
+
+    if (
+      selectedCategory.gender === 'mixed' &&
+      targetEntry.player1?.gender &&
+      p.gender === targetEntry.player1.gender
+    ) {
+      setAssignError('Mixed doubles requires one boy and one girl.');
+      return;
+    }
+
+    const alreadyIn = entries.some(
+      (entry) => entry.player1?.id === p.id || entry.player2?.id === p.id
+    );
+    if (alreadyIn) {
+      setAssignError(`@${usernameClean} is already registered in this category.`);
+      return;
+    }
+
+    setAssignFoundPlayer(p as unknown as Player);
+  };
+
+  // Confirm partner assignment for an existing entry
+  const handleConfirmAssignPartner = async (targetEntry: Entry) => {
+    if (!assignFoundPlayer || !selectedCategory || !tournament || !user) return;
+    setIsAssigning(true);
+    setAssignError('');
+
+    try {
+      const p1Rating = targetEntry.player1?.rating || 500;
+      const combinedRating = Math.round((p1Rating + assignFoundPlayer.rating) / 2);
+
+      const { error: updErr } = await supabase
+        .from('entries')
+        .update({
+          player2_id: assignFoundPlayer.id,
+          is_solo: false,
+          pair_rating: combinedRating,
+        })
+        .eq('id', targetEntry.id);
+
+      if (updErr) throw updErr;
+
+      await supabase.from('audit_log').insert({
+        tournament_id: tournament.id,
+        action: 'entry_partner_assigned',
+        actor_id: user.id,
+        details: {
+          entryId: targetEntry.id,
+          categoryName: selectedCategory.name,
+          player1Username: targetEntry.player1?.username,
+          player2Username: assignFoundPlayer.username,
+        },
+      });
+
+      setAssigningEntryId(null);
+      setAssignFoundPlayer(null);
+      setAssignSearchUsername('');
+      await refreshCategoryData();
+    } catch (err: unknown) {
+      setAssignError(errorMessage(err, 'Failed to assign partner.'));
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  // Delete an entry
+  const handleDeleteEntry = async (entry: Entry) => {
+    const p1Name = entry.player1?.name || entry.player1?.username || 'this entry';
+    if (!confirm(`Are you sure you want to remove ${p1Name} from this category?`)) return;
+
+    try {
+      const { error } = await supabase.from('entries').delete().eq('id', entry.id);
+      if (error) throw error;
+      await refreshCategoryData();
+    } catch (err: unknown) {
+      setSearchError(errorMessage(err, 'Failed to remove entry.'));
     }
   };
 
@@ -217,7 +403,12 @@ export default function ManageTournamentDetailPage({
     try {
       const participants = entries.map((e) => ({
         id: e.id,
-        name: e.player1?.name || 'TBD',
+        name:
+          selectedCategory?.type === 'doubles'
+            ? e.player2
+              ? `${e.player1?.name || 'TBD'} & ${e.player2?.name || 'TBD'}`
+              : `${e.player1?.name || 'TBD'} (Solo)`
+            : e.player1?.name || 'TBD',
         rating: e.pair_rating || e.player1?.rating || 500,
         seed: e.seed,
         avatar_id: e.player1?.avatar_id,
@@ -418,62 +609,210 @@ export default function ManageTournamentDetailPage({
         </div>
       )}
 
-      {/* Section 1: Register Player */}
-      <div className="court-card p-5 rounded-3xl space-y-3">
-        <h3 className="font-sport font-extrabold text-sm text-[var(--text-main)] uppercase tracking-wider flex items-center gap-2">
-          <UserPlus className="w-4 h-4 text-[var(--accent-ink)]" />
-          Register Player to Category
-        </h3>
+      {/* Section 1: Register Player / Doubles Pair */}
+      <div className="court-card p-5 rounded-3xl space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-sport font-extrabold text-sm text-[var(--text-main)] uppercase tracking-wider flex items-center gap-2">
+            <UserPlus className="w-4 h-4 text-[var(--accent-ink)]" />
+            {selectedCategory?.type === 'doubles'
+              ? 'Register Doubles Pair'
+              : 'Register Player to Category'}
+          </h3>
+          {selectedCategory?.type === 'doubles' && (
+            <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-[var(--surface-raised)] text-[var(--accent-ink)] border border-[var(--hairline)]">
+              Doubles Event
+            </span>
+          )}
+        </div>
 
-        <form onSubmit={handleSearchPlayer} className="flex gap-2">
-          <div className="relative flex-1">
-            <input
-              type="text"
-              value={searchUsername}
-              onChange={(e) => setSearchUsername(e.target.value)}
-              placeholder="Search username (e.g. arjun_smash, meera_k)..."
-              className="w-full tap-target pl-9 pr-3.5 py-2.5 rounded-xl bg-[var(--surface-raised)] border border-[var(--hairline)] text-xs font-mono text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-lime)]"
-            />
-            <Search className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-3" />
-          </div>
-          <button
-            type="submit"
-            className="tap-target px-4 rounded-xl btn-lime text-xs font-black shrink-0"
-          >
-            Find
-          </button>
-        </form>
-
-        {foundPlayer && (
-          <div className="p-3.5 rounded-2xl bg-[var(--surface-raised)] border border-[var(--accent-lime)] flex items-center justify-between animate-in fade-in duration-200">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full overflow-hidden border border-[var(--accent-lime)]">
-                <Image width={96} height={96}
-                  src={`/avatars/${foundPlayer.avatar_id || 'cat-01'}.svg`}
-                  alt="Avatar"
-                  className="w-full h-full object-cover"
-                />
+        <div className="space-y-3">
+          {/* Player 1 Search or Card */}
+          {!foundPlayer ? (
+            <div>
+              <label className="text-[10px] font-bold uppercase text-[var(--text-muted)] block mb-1">
+                {selectedCategory?.type === 'doubles' ? 'Search Player 1 by Username' : 'Search Username'}
+              </label>
+              <form onSubmit={handleSearchPlayer} className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={searchUsername}
+                    onChange={(e) => setSearchUsername(e.target.value)}
+                    placeholder="Search username (e.g. arjun_smash, abuzar)..."
+                    className="w-full tap-target pl-9 pr-3.5 py-2.5 rounded-xl bg-[var(--surface-raised)] border border-[var(--hairline)] text-xs font-mono text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-lime)]"
+                  />
+                  <Search className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-3" />
+                </div>
+                <button
+                  type="submit"
+                  className="tap-target px-4 rounded-xl btn-lime text-xs font-black shrink-0"
+                >
+                  Find
+                </button>
+              </form>
+            </div>
+          ) : (
+            <div className="p-3.5 rounded-2xl bg-[var(--surface-raised)] border border-[var(--accent-lime)] flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full overflow-hidden border border-[var(--accent-lime)]">
+                  <Image
+                    width={96}
+                    height={96}
+                    src={`/avatars/${foundPlayer.avatar_id || 'cat-01'}.svg`}
+                    alt="Avatar"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-extrabold text-[var(--text-main)]">
+                      {foundPlayer.name}
+                    </p>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[var(--accent-lime)] text-[#0B1020]">
+                      Player 1
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[var(--text-muted)] font-mono">
+                    @{foundPlayer.username} • {foundPlayer.rating} Elo ({foundPlayer.gender})
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs font-extrabold text-[var(--text-main)]">
-                  {foundPlayer.name}
-                </p>
-                <p className="text-[11px] text-[var(--text-muted)] font-mono">
-                  @{foundPlayer.username} • {foundPlayer.rating} Elo ({foundPlayer.gender})
-                </p>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setFoundPlayer(null);
+                  setSearchUsername('');
+                }}
+                className="p-1 rounded-lg hover:bg-rose-500/10 text-[var(--text-muted)] hover:text-rose-400 text-xs"
+                title="Change Player 1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Player 2 Search or Card (Only for Doubles) */}
+          {selectedCategory?.type === 'doubles' && foundPlayer && (
+            <div className="pt-2 border-t border-[var(--hairline)]">
+              {!foundPlayer2 ? (
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-[var(--text-muted)] block mb-1">
+                    Search Player 2 / Partner (Optional if Registering Solo)
+                  </label>
+                  <form onSubmit={handleSearchPlayer2} className="flex gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        value={searchUsername2}
+                        onChange={(e) => setSearchUsername2(e.target.value)}
+                        placeholder="Search partner username (optional)..."
+                        className="w-full tap-target pl-9 pr-3.5 py-2.5 rounded-xl bg-[var(--surface-raised)] border border-[var(--hairline)] text-xs font-mono text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-lime)]"
+                      />
+                      <Search className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-3" />
+                    </div>
+                    <button
+                      type="submit"
+                      className="tap-target px-4 rounded-xl btn-lime text-xs font-black shrink-0"
+                    >
+                      Find Partner
+                    </button>
+                  </form>
+                </div>
+              ) : (
+                <div className="p-3.5 rounded-2xl bg-[var(--surface-raised)] border border-[var(--accent-lime)] flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full overflow-hidden border border-[var(--accent-lime)]">
+                      <Image
+                        width={96}
+                        height={96}
+                        src={`/avatars/${foundPlayer2.avatar_id || 'cat-02'}.svg`}
+                        alt="Avatar"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-extrabold text-[var(--text-main)]">
+                          {foundPlayer2.name}
+                        </p>
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[var(--accent-lime)] text-[#0B1020]">
+                          Player 2 (Partner)
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[var(--text-muted)] font-mono">
+                        @{foundPlayer2.username} • {foundPlayer2.rating} Elo ({foundPlayer2.gender})
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFoundPlayer2(null);
+                      setSearchUsername2('');
+                    }}
+                    className="p-1 rounded-lg hover:bg-rose-500/10 text-[var(--text-muted)] hover:text-rose-400 text-xs"
+                    title="Change Player 2"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          {foundPlayer && (
+            <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="text-xs font-mono text-[var(--text-muted)]">
+                {selectedCategory?.type === 'doubles' && foundPlayer2 ? (
+                  <span>
+                    Combined Team Elo:{' '}
+                    <strong className="text-[var(--accent-ink)]">
+                      {Math.round((foundPlayer.rating + foundPlayer2.rating) / 2)} Elo
+                    </strong>
+                  </span>
+                ) : (
+                  <span>
+                    Player Rating:{' '}
+                    <strong className="text-[var(--accent-ink)]">
+                      {foundPlayer.rating} Elo
+                    </strong>
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {selectedCategory?.type === 'doubles' && !foundPlayer2 && (
+                  <button
+                    type="button"
+                    onClick={() => handleAddPlayer(true)}
+                    disabled={isAdding}
+                    className="tap-target px-3.5 py-2 rounded-xl btn-secondary text-xs font-bold disabled:opacity-50"
+                  >
+                    {isAdding ? 'Adding...' : 'Register as Solo'}
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => handleAddPlayer(false)}
+                  disabled={isAdding}
+                  className="tap-target px-4 py-2 rounded-xl btn-lime text-xs font-black shadow-md shadow-[rgba(198,255,61,0.2)] disabled:opacity-50"
+                >
+                  {isAdding
+                    ? 'Adding...'
+                    : selectedCategory?.type === 'doubles'
+                    ? foundPlayer2
+                      ? 'Confirm Doubles Pair'
+                      : 'Confirm Entry'
+                    : 'Confirm Entry'}
+                </button>
               </div>
             </div>
-
-            <button
-              type="button"
-              onClick={handleAddPlayer}
-              disabled={isAdding}
-              className="tap-target px-4 py-2 rounded-xl btn-lime text-xs font-black shadow-md shadow-[rgba(198,255,61,0.2)] disabled:opacity-50"
-            >
-              {isAdding ? 'Adding...' : 'Confirm Entry'}
-            </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Section 2: Registered Entries */}
@@ -505,38 +844,182 @@ export default function ManageTournamentDetailPage({
             message="Search and register players by username above to fill this bracket."
           />
         ) : (
-          <div className="space-y-2">
-            {entries.map((entry, idx) => (
-              <div
-                key={entry.id}
-                className="flex items-center justify-between p-3 rounded-2xl bg-[var(--surface-raised)] border border-[var(--hairline)]"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="w-6 h-6 rounded-lg bg-[var(--surface)] border border-[var(--hairline)] flex items-center justify-center text-[10px] font-mono font-bold text-[var(--text-muted)]">
-                    #{idx + 1}
-                  </span>
-                  <div className="w-8 h-8 rounded-full overflow-hidden border border-[var(--hairline)]">
-                    <Image width={96} height={96}
-                      src={`/avatars/${entry.player1?.avatar_id || 'cat-01'}.svg`}
-                      alt="Avatar"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div>
-                    <span className="text-xs font-bold text-[var(--text-main)] block">
-                      {entry.player1?.name}
-                    </span>
-                    <span className="text-[11px] text-[var(--text-muted)] font-mono">
-                      @{entry.player1?.username}
-                    </span>
-                  </div>
-                </div>
+          <div className="space-y-2.5">
+            {entries.map((entry, idx) => {
+              const isDoubles = selectedCategory?.type === 'doubles';
+              const hasPartner = isDoubles && !!entry.player2;
+              const isAssigningThis = assigningEntryId === entry.id;
 
-                <span className="font-sport text-sm font-black text-[var(--accent-ink)] font-mono tabular-nums">
-                  {entry.pair_rating || entry.player1?.rating} Elo
-                </span>
-              </div>
-            ))}
+              return (
+                <div
+                  key={entry.id}
+                  className="p-3.5 rounded-2xl bg-[var(--surface-raised)] border border-[var(--hairline)] space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 min-w-0 pr-2">
+                      <span className="w-6 h-6 rounded-lg bg-[var(--surface)] border border-[var(--hairline)] flex items-center justify-center text-[10px] font-mono font-bold text-[var(--text-muted)] shrink-0">
+                        #{idx + 1}
+                      </span>
+
+                      {/* Player 1 Avatar + Partner Avatar */}
+                      <div className="relative shrink-0">
+                        <div className="w-9 h-9 rounded-full overflow-hidden border border-[var(--hairline)]">
+                          <Image
+                            width={96}
+                            height={96}
+                            src={`/avatars/${entry.player1?.avatar_id || 'cat-01'}.svg`}
+                            alt="Avatar"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        {isDoubles && hasPartner && (
+                          <div className="w-6 h-6 rounded-full overflow-hidden border border-[var(--surface)] absolute -bottom-1 -right-1">
+                            <Image
+                              width={96}
+                              height={96}
+                              src={`/avatars/${entry.player2?.avatar_id || 'cat-02'}.svg`}
+                              alt="Partner"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-[var(--text-main)] truncate">
+                            {isDoubles
+                              ? hasPartner
+                                ? `${entry.player1?.name} & ${entry.player2?.name}`
+                                : entry.player1?.name
+                              : entry.player1?.name}
+                          </span>
+                          {isDoubles && !hasPartner && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-400/10 text-amber-400 border border-amber-400/30 shrink-0">
+                              Solo • Needs Partner
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[11px] text-[var(--text-muted)] font-mono block truncate">
+                          @{entry.player1?.username}
+                          {isDoubles && hasPartner && ` & @${entry.player2?.username}`}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="font-sport text-sm font-black text-[var(--accent-ink)] font-mono tabular-nums">
+                        {entry.pair_rating || entry.player1?.rating} Elo
+                      </span>
+
+                      {isDoubles && !hasPartner && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAssigningEntryId(isAssigningThis ? null : entry.id);
+                            setAssignFoundPlayer(null);
+                            setAssignSearchUsername('');
+                            setAssignError('');
+                          }}
+                          className={`tap-target px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition-all ${
+                            isAssigningThis
+                              ? 'bg-[var(--accent-lime)] text-[#0B1020]'
+                              : 'btn-secondary text-[var(--accent-ink)]'
+                          }`}
+                        >
+                          <UserPlus className="w-3 h-3" />
+                          <span>{isAssigningThis ? 'Cancel' : 'Assign Partner'}</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteEntry(entry)}
+                        className="p-1.5 rounded-lg text-rose-400/70 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                        title="Remove Entry"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Inline Assign Partner Form */}
+                  {isAssigningThis && (
+                    <div className="p-3 rounded-xl bg-[var(--surface)] border border-[var(--accent-lime)] space-y-2.5 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold uppercase text-[var(--text-muted)]">
+                          Search Partner for {entry.player1?.name}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setAssigningEntryId(null)}
+                          className="text-[var(--text-muted)] hover:text-white text-xs"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      {assignError && (
+                        <p className="text-xs text-rose-400">{assignError}</p>
+                      )}
+
+                      <form
+                        onSubmit={(e) => handleSearchAssignPartner(e, entry)}
+                        className="flex gap-2"
+                      >
+                        <div className="relative flex-1">
+                          <input
+                            type="text"
+                            value={assignSearchUsername}
+                            onChange={(e) => setAssignSearchUsername(e.target.value)}
+                            placeholder="Partner username..."
+                            className="w-full tap-target pl-8 pr-3 py-1.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--hairline)] text-xs font-mono text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-lime)]"
+                          />
+                          <Search className="w-3.5 h-3.5 text-[var(--text-muted)] absolute left-2.5 top-2.5" />
+                        </div>
+                        <button
+                          type="submit"
+                          className="tap-target px-3 py-1.5 rounded-lg btn-lime text-xs font-black"
+                        >
+                          Search
+                        </button>
+                      </form>
+
+                      {assignFoundPlayer && (
+                        <div className="p-2.5 rounded-xl bg-[var(--surface-raised)] border border-[var(--hairline)] flex items-center justify-between">
+                          <div className="flex items-center gap-2.5">
+                            <Image
+                              width={96}
+                              height={96}
+                              src={`/avatars/${assignFoundPlayer.avatar_id || 'cat-02'}.svg`}
+                              alt="Avatar"
+                              className="w-8 h-8 rounded-full border border-[var(--hairline)]"
+                            />
+                            <div>
+                              <p className="text-xs font-extrabold text-[var(--text-main)]">
+                                {assignFoundPlayer.name}
+                              </p>
+                              <span className="text-[10px] text-[var(--text-muted)] font-mono">
+                                @{assignFoundPlayer.username} • {assignFoundPlayer.rating} Elo
+                              </span>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleConfirmAssignPartner(entry)}
+                            disabled={isAssigning}
+                            className="tap-target px-3 py-1.5 rounded-lg btn-lime text-xs font-black"
+                          >
+                            {isAssigning ? 'Assigning...' : 'Confirm Partner'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

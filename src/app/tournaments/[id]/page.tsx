@@ -358,6 +358,13 @@ export default function TournamentDetailPage({
         );
         if (!myEntry) return null;
 
+        const isDoubles = selectedCategory?.type === 'doubles' || !!myEntry.player2;
+        const myPartner = isDoubles
+          ? myEntry.player1?.id === user?.id
+            ? myEntry.player2
+            : myEntry.player1
+          : null;
+
         return (
           <div className="p-4 rounded-2xl bg-[rgba(198,255,61,0.12)] border border-[rgba(198,255,61,0.35)] flex items-center justify-between shadow-lg shadow-[rgba(198,255,61,0.05)]">
             <div className="flex items-center gap-3">
@@ -376,13 +383,24 @@ export default function TournamentDetailPage({
                   )}
                 </div>
                 <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
-                  Category: <strong className="text-[var(--text-main)]">{selectedCategory?.name}</strong> • Rating: {myEntry.pair_rating || profile?.rating || 500} Elo
+                  Category: <strong className="text-[var(--text-main)]">{selectedCategory?.name}</strong>
+                  {isDoubles && (
+                    <>
+                      {' • '}
+                      {myPartner ? (
+                        <>Partner: <strong className="text-[var(--text-main)]">{myPartner.name}</strong> (@{myPartner.username})</>
+                      ) : (
+                        <span className="text-amber-400 font-bold">Solo Entry • Waiting for Partner Assignment</span>
+                      )}
+                    </>
+                  )}
+                  {' • '}Rating: {myEntry.pair_rating || profile?.rating || 500} Elo
                   {matches.length === 0 ? ' • Waiting for tournament draw to be published' : ' • Draw is live! Check your match below.'}
                 </p>
               </div>
             </div>
             <span className="text-[10px] font-mono font-black uppercase px-2.5 py-1 rounded-full bg-[var(--surface-raised)] text-[var(--accent-ink)] border border-[var(--accent-lime)] shrink-0">
-              Confirmed Player
+              {isDoubles && !myPartner ? 'Solo Player' : 'Confirmed Team'}
             </span>
           </div>
         );
@@ -495,14 +513,23 @@ export default function TournamentDetailPage({
                           alt="Avatar"
                           className="w-11 h-11 rounded-full border border-[var(--hairline)] bg-[var(--surface-raised)]"
                         />
-                        {isDoubles && entry.player2 && (
-                          <Image
-                            width={96}
-                            height={96}
-                            src={`/avatars/${entry.player2?.avatar_id || 'cat-02'}.svg`}
-                            alt="Partner Avatar"
-                            className="w-7 h-7 rounded-full border border-[var(--surface)] bg-[var(--surface-raised)] absolute -bottom-1 -right-1"
-                          />
+                        {isDoubles && (
+                          entry.player2 ? (
+                            <Image
+                              width={96}
+                              height={96}
+                              src={`/avatars/${entry.player2?.avatar_id || 'cat-02'}.svg`}
+                              alt="Partner Avatar"
+                              className="w-7 h-7 rounded-full border border-[var(--surface)] bg-[var(--surface-raised)] absolute -bottom-1 -right-1"
+                            />
+                          ) : (
+                            <div
+                              className="w-6 h-6 rounded-full border border-dashed border-amber-400/60 bg-[var(--surface)] text-[10px] text-amber-400 font-bold flex items-center justify-center absolute -bottom-1 -right-1"
+                              title="Waiting for partner"
+                            >
+                              ?
+                            </div>
+                          )
                         )}
                       </div>
 
@@ -510,9 +537,16 @@ export default function TournamentDetailPage({
                         <div className="flex items-center gap-2">
                           <p className={`text-sm font-black truncate ${isMe ? 'text-[var(--accent-ink)]' : 'text-[var(--text-main)]'}`}>
                             {isDoubles
-                              ? `${entry.player1?.name || 'Player 1'} & ${entry.player2?.name || 'Player 2'}`
+                              ? entry.player2
+                                ? `${entry.player1?.name || 'Player 1'} & ${entry.player2?.name || 'Player 2'}`
+                                : `${entry.player1?.name || entry.player1?.username || 'Player 1'}`
                               : entry.player1?.name || entry.player1?.username || 'Player'}
                           </p>
+                          {isDoubles && !entry.player2 && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-400/10 text-amber-400 border border-amber-400/30">
+                              Needs Partner
+                            </span>
+                          )}
                           {isMe && (
                             <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-[var(--accent-lime)] text-[#0B1020]">
                               YOU
@@ -521,11 +555,10 @@ export default function TournamentDetailPage({
                         </div>
 
                         <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] mt-0.5">
-                          {entry.player1?.username && (
-                            <span className="font-mono text-[11px] truncate">
-                              @{entry.player1.username}
-                            </span>
-                          )}
+                          <span className="font-mono text-[11px] truncate">
+                            @{entry.player1?.username}
+                            {isDoubles && entry.player2 && ` & @${entry.player2.username}`}
+                          </span>
                           <span className="font-sport font-bold text-[11px] text-[var(--text-muted)] tabular-nums">
                             {entry.pair_rating || entry.player1?.rating || 500} Elo
                           </span>
