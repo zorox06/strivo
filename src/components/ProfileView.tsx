@@ -7,11 +7,31 @@ import type { Player, RatingHistory } from '@/lib/types';
 import { errorMessage } from '@/lib/errors';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { Phone, Edit3, LogOut, MessageSquare, Lock } from 'lucide-react';
+import { Phone, Edit3, LogOut, MessageSquare, Lock, Trophy, ChevronRight } from 'lucide-react';
 import { calculateProfileStats, playerWonMatch } from '@/lib/rating/stats';
 import CatEmptyState from '@/components/CatEmptyState';
+
+interface ProfileTournamentEntry {
+  id: string;
+  seed?: number | null;
+  pair_rating?: number;
+  category?: {
+    id: string;
+    name: string;
+    type: 'singles' | 'doubles';
+    gender: 'boys' | 'girls' | 'mixed';
+    status: string;
+    tournament?: {
+      id: string;
+      name: string;
+      date: string;
+      status: string;
+    };
+  };
+}
 
 interface ProfileViewProps {
   username?: string; // If undefined, view own profile
@@ -43,6 +63,7 @@ export default function ProfileView({ username }: ProfileViewProps) {
   const [hoveredPoint, setHoveredPoint] = useState<{ index: number; rating: number } | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [registrations, setRegistrations] = useState<ProfileTournamentEntry[]>([]);
 
   // Edit form state
   const [editName, setEditName] = useState('');
@@ -117,6 +138,22 @@ export default function ProfileView({ username }: ProfileViewProps) {
             setHistory(hist as unknown as RatingHistory[]);
 
             setStats(calculateProfileStats(hist as unknown as RatingHistory[], targetId));
+          }
+
+          // 3. Get tournament registrations & entries
+          const { data: userEntries } = await supabase
+            .from('entries')
+            .select(`
+              id, seed, pair_rating, is_solo, category_id,
+              category:categories(
+                id, name, type, gender, status,
+                tournament:tournaments(id, name, date, status)
+              )
+            `)
+            .or(`player1_id.eq.${targetId},player2_id.eq.${targetId}`);
+
+          if (userEntries) {
+            setRegistrations(userEntries as unknown as ProfileTournamentEntry[]);
           }
         }
       } catch (err) {
@@ -287,13 +324,26 @@ export default function ProfileView({ username }: ProfileViewProps) {
               </div>
 
               {isOwnProfile && (
-                <button
-                  onClick={openEditModal}
-                  className="tap-target p-2.5 rounded-xl btn-secondary text-xs"
-                  title="Edit Profile"
-                >
-                  <Edit3 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={openEditModal}
+                    className="tap-target px-3 py-2 rounded-xl btn-secondary text-xs font-bold flex items-center gap-1.5"
+                    title="Edit Profile"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Edit</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={signOut}
+                    className="tap-target px-3.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/25 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
+                    title="Sign Out of Strivo"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
               )}
             </div>
 
@@ -562,6 +612,68 @@ export default function ProfileView({ username }: ProfileViewProps) {
             </div>
           </div>
 
+          {/* Tournaments & Entries */}
+          <div className="court-card p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-[var(--accent-ink)]" />
+                <h3 className="font-sport font-black text-lg text-[var(--text-main)] uppercase tracking-wide">
+                  {isOwnProfile ? 'Your Tournaments' : 'Tournaments'} ({registrations.length})
+                </h3>
+              </div>
+              <Link
+                href="/tournaments"
+                className="text-xs font-bold text-[var(--accent-ink)] hover:underline flex items-center gap-0.5"
+              >
+                <span>Arena</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            {registrations.length === 0 ? (
+              <p className="text-xs text-[var(--text-muted)] py-1">
+                {isOwnProfile
+                  ? "You haven't been added to any tournaments yet. Join or check back with your organizer!"
+                  : 'No tournament entries recorded for this player yet.'}
+              </p>
+            ) : (
+              <div className="space-y-2.5">
+                {registrations.map((reg) => (
+                  <Link
+                    key={reg.id}
+                    href={`/tournaments/${reg.category?.tournament?.id}`}
+                    className="block p-3.5 rounded-2xl bg-[var(--surface-raised)] border border-[var(--hairline)] hover:border-[var(--accent-lime)] transition-all group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="min-w-0 pr-2">
+                        <p className="text-xs font-black text-[var(--text-main)] group-hover:text-[var(--accent-ink)] transition-colors truncate">
+                          {reg.category?.tournament?.name || 'Tournament'}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--hairline)]">
+                            {reg.category?.name}
+                          </span>
+                          {reg.seed && (
+                            <span className="text-[10px] font-mono font-bold text-[var(--accent-ink)]">
+                              Seed #{reg.seed}
+                            </span>
+                          )}
+                          <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                            {reg.category?.tournament?.date}
+                          </span>
+                        </div>
+                      </div>
+
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md bg-[rgba(198,255,61,0.15)] text-[var(--accent-ink)] border border-[var(--accent-lime)] shrink-0">
+                        {reg.category?.tournament?.status === 'in_progress' ? 'Live' : 'Confirmed'}
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Match History with Rating-Change Chips (+9 / -9) */}
           <div className="space-y-3">
             <h3 className="font-sport font-black text-lg text-[var(--text-main)] uppercase tracking-wide px-1">
@@ -775,6 +887,20 @@ export default function ProfileView({ username }: ProfileViewProps) {
                   className="flex-1 tap-target py-2.5 btn-lime text-xs font-black"
                 >
                   {editSaving ? 'Saving...' : 'Save Profile'}
+                </button>
+              </div>
+
+              <div className="pt-2 border-t border-[var(--hairline)] flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditing(false);
+                    signOut();
+                  }}
+                  className="text-xs font-bold text-rose-400 hover:text-rose-300 flex items-center gap-1.5 py-1"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sign Out of Strivo</span>
                 </button>
               </div>
             </form>

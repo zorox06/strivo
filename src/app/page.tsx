@@ -9,10 +9,27 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { Trophy, Swords, ChevronRight, Calendar, TrendingUp, PlusCircle, ArrowUpRight } from 'lucide-react';
+import { Trophy, Swords, ChevronRight, Calendar, TrendingUp, PlusCircle, ArrowUpRight, CheckCircle2 } from 'lucide-react';
 import CourtIllustration from '@/components/CourtIllustration';
 import LoadError from '@/components/LoadError';
 import CatEmptyState from '@/components/CatEmptyState';
+
+interface HomeTournamentEntry {
+  id: string;
+  seed?: number | null;
+  pair_rating?: number;
+  category?: {
+    id: string;
+    name: string;
+    type: string;
+    tournament?: {
+      id: string;
+      name: string;
+      date: string;
+      status: string;
+    };
+  };
+}
 
 export default function HomePage() {
   const { user, profile, isLoading: authLoading } = useAuth();
@@ -20,6 +37,7 @@ export default function HomePage() {
 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [nextMatch, setNextMatch] = useState<Match | null>(null);
+  const [registeredEntries, setRegisteredEntries] = useState<HomeTournamentEntry[]>([]);
   const [userRank, setUserRank] = useState<number | null>(null);
   const [last5Form, setLast5Form] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -31,6 +49,7 @@ export default function HomePage() {
       setIsLoading(true);
       setLoadError('');
       setNextMatch(null);
+      setRegisteredEntries([]);
       setUserRank(null);
       setLast5Form([]);
       try {
@@ -66,10 +85,17 @@ export default function HomePage() {
 
           const { data: myEntries } = await supabase
             .from('entries')
-            .select('id')
+            .select(`
+              id, seed, pair_rating,
+              category:categories(
+                id, name, type,
+                tournament:tournaments(id, name, date, status)
+              )
+            `)
             .or(`player1_id.eq.${user.id},player2_id.eq.${user.id}`);
 
           if (myEntries && myEntries.length > 0) {
+            setRegisteredEntries(myEntries as unknown as HomeTournamentEntry[]);
             const entryIds = myEntries.map((e) => e.id);
             const { data: match } = await supabase
               .from('matches')
@@ -302,6 +328,62 @@ export default function HomePage() {
               </div>
             </div>
           )}
+
+          {/* Registered Tournaments Section */}
+          {registeredEntries.length > 0 && (
+            <div className="court-card p-5 border-l-4 border-l-[var(--accent-lime)] shadow-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-4 h-4 text-[var(--accent-ink)]" />
+                  <span className="font-sport font-black text-sm uppercase tracking-wide text-[var(--text-main)]">
+                    Your Tournaments ({registeredEntries.length})
+                  </span>
+                </div>
+                <Link
+                  href="/tournaments"
+                  className="text-xs text-[var(--accent-ink)] font-bold hover:underline flex items-center gap-0.5"
+                >
+                  <span>View Arena</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+
+              <div className="space-y-2.5">
+                {registeredEntries.map((reg) => (
+                  <Link
+                    key={reg.id}
+                    href={`/tournaments/${reg.category?.tournament?.id}`}
+                    className="block p-3.5 rounded-2xl bg-[var(--surface-raised)] border border-[var(--hairline)] hover:border-[var(--accent-lime)] transition-all group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="min-w-0 pr-2">
+                        <p className="text-xs font-black text-[var(--text-main)] group-hover:text-[var(--accent-ink)] transition-colors truncate">
+                          {reg.category?.tournament?.name || 'Tournament'}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--hairline)] font-bold">
+                            {reg.category?.name}
+                          </span>
+                          {reg.seed && (
+                            <span className="text-[10px] font-mono font-bold text-[var(--accent-ink)]">
+                              Seed #{reg.seed}
+                            </span>
+                          )}
+                          <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                            {reg.category?.tournament?.date}
+                          </span>
+                        </div>
+                      </div>
+
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-[rgba(198,255,61,0.15)] text-[var(--accent-ink)] border border-[var(--accent-lime)] shrink-0">
+                        {reg.category?.tournament?.status === 'in_progress' ? 'Live' : 'Confirmed'}
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right Column (Tournaments & Quick Actions) */}
@@ -347,42 +429,56 @@ export default function HomePage() {
             />
           ) : (
             <div className="space-y-2.5">
-              {tournaments.map((t) => (
-                <Link
-                  key={t.id}
-                  href={`/tournaments/${t.id}`}
-                  className="block court-card p-4 hover:border-[var(--accent-lime)] transition-all hover:scale-[1.01]"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        {t.status === 'in_progress' ? (
-                          <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--accent-lime-muted)] text-[var(--accent-ink)] border border-[var(--accent-lime)]">
-                            <span className="live-dot w-1.5 h-1.5" />
-                            Live
+              {tournaments.map((t) => {
+                const isUserRegistered = registeredEntries.some(
+                  (re) => re.category?.tournament?.id === t.id
+                );
+
+                return (
+                  <Link
+                    key={t.id}
+                    href={`/tournaments/${t.id}`}
+                    className={`block court-card p-4 hover:border-[var(--accent-lime)] transition-all hover:scale-[1.01] ${
+                      isUserRegistered ? 'border-[var(--accent-lime)] ring-1 ring-[var(--accent-lime)]/30' : ''
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          {isUserRegistered && (
+                            <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--accent-lime)] text-[#0B1020] flex items-center gap-1 shadow-sm">
+                              <CheckCircle2 className="w-2.5 h-2.5" />
+                              Registered
+                            </span>
+                          )}
+                          {t.status === 'in_progress' ? (
+                            <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--accent-lime-muted)] text-[var(--accent-ink)] border border-[var(--accent-lime)]">
+                              <span className="live-dot w-1.5 h-1.5" />
+                              Live
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--surface-raised)] text-[var(--text-muted)] border border-[var(--hairline)]">
+                              {t.status.replace('_', ' ')}
+                            </span>
+                          )}
+                          <span className="text-xs font-mono text-[var(--text-muted)] flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {t.date}
                           </span>
-                        ) : (
-                          <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--surface-raised)] text-[var(--text-muted)] border border-[var(--hairline)]">
-                            {t.status.replace('_', ' ')}
-                          </span>
-                        )}
-                        <span className="text-xs font-mono text-[var(--text-muted)] flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          {t.date}
-                        </span>
+                        </div>
+
+                        <h4 className="text-sm font-black text-[var(--text-main)] mt-1.5">
+                          {t.name}
+                        </h4>
                       </div>
 
-                      <h4 className="text-sm font-black text-[var(--text-main)] mt-1.5">
-                        {t.name}
-                      </h4>
+                      <div className="w-8 h-8 rounded-xl bg-[var(--surface-raised)] border border-[var(--hairline)] flex items-center justify-center text-[var(--text-muted)]">
+                        <ChevronRight className="w-4 h-4" />
+                      </div>
                     </div>
-
-                    <div className="w-8 h-8 rounded-xl bg-[var(--surface-raised)] border border-[var(--hairline)] flex items-center justify-center text-[var(--text-muted)]">
-                      <ChevronRight className="w-4 h-4" />
-                    </div>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           )}
 

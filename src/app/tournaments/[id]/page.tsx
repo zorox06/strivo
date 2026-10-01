@@ -2,13 +2,13 @@
 
 import Image from 'next/image';
 
-import type { Tournament, Category, Match } from '@/lib/types';
+import type { Tournament, Category, Match, Entry } from '@/lib/types';
 
 import React, { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { Calendar, Edit2, ArrowLeft, Grid, List } from 'lucide-react';
+import { Calendar, Edit2, ArrowLeft, Grid, List, Users, CheckCircle2, Trophy } from 'lucide-react';
 import { MatchRules } from '@/lib/match/rules';
 import CatEmptyState from '@/components/CatEmptyState';
 
@@ -20,15 +20,18 @@ export default function TournamentDetailPage({
   const resolvedParams = use(params);
   const tournamentId = resolvedParams.id;
   const supabase = createClient();
-  const { hasTournamentAccess } = useAuth();
+  const { user, profile, hasTournamentAccess } = useAuth();
 
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [matches, setMatches] = useState<Match[]>([]);
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const [userRegisteredCatIds, setUserRegisteredCatIds] = useState<string[]>([]);
   const [selectedRound, setSelectedRound] = useState<number>(1);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'round' | 'bracket'>('round');
+  const [activeTab, setActiveTab] = useState<'matches' | 'players'>('matches');
 
   // 1. Load tournament and categories
   useEffect(() => {
@@ -49,7 +52,23 @@ export default function TournamentDetailPage({
 
         if (cats && cats.length > 0) {
           setCategories(cats as unknown as Category[]);
-          setSelectedCategoryId(cats[0].id);
+          let initialCatId = cats[0].id;
+
+          if (user) {
+            const catIds = cats.map((c) => c.id);
+            const { data: userEnts } = await supabase
+              .from('entries')
+              .select('category_id')
+              .in('category_id', catIds)
+              .or(`player1_id.eq.${user.id},player2_id.eq.${user.id}`);
+            if (userEnts && userEnts.length > 0) {
+              const regIds = userEnts.map((e) => e.category_id);
+              setUserRegisteredCatIds(regIds);
+              initialCatId = regIds[0];
+            }
+          }
+
+          setSelectedCategoryId(initialCatId);
         }
       } catch (err) {
         console.error('Error loading tournament:', err);
@@ -59,14 +78,30 @@ export default function TournamentDetailPage({
     }
 
     loadTournament();
-  }, [tournamentId, supabase]);
+  }, [tournamentId, supabase, user]);
 
-  // 2. Load matches for selected category & setup Realtime
+  // 2. Load matches & entries for selected category & setup Realtime
   useEffect(() => {
     if (!selectedCategoryId) return;
 
-    async function loadMatches() {
-      const { data } = await supabase
+    async function loadCategoryData() {
+      // 1. Fetch confirmed entries
+      const { data: entriesData } = await supabase
+        .from('entries')
+        .select(`
+          id, category_id, seed, pair_rating, is_solo,
+          player1:profiles!entries_player1_id_fkey(id, username, name, avatar_id, rating, gender, level),
+          player2:profiles!entries_player2_id_fkey(id, username, name, avatar_id, rating, gender, level)
+        `)
+        .eq('category_id', selectedCategoryId)
+        .order('seed', { ascending: true, nullsFirst: false });
+
+      if (entriesData) {
+        setEntries(entriesData as unknown as Entry[]);
+      }
+
+      // 2. Fetch matches
+      const { data: matchesData } = await supabase
         .from('matches')
         .select(`
           id, round, round_name, slot, status, court, rules_snapshot, set_scores, winner_id,
@@ -85,19 +120,19 @@ export default function TournamentDetailPage({
         .order('round', { ascending: true })
         .order('slot', { ascending: true });
 
-      if (data) {
-        setMatches(data as unknown as Match[]);
-        if (data.length > 0) {
-          const inProgressMatch = data.find((m) => m.status === 'in_progress');
+      if (matchesData) {
+        setMatches(matchesData as unknown as Match[]);
+        if (matchesData.length > 0) {
+          const inProgressMatch = matchesData.find((m) => m.status === 'in_progress');
           setSelectedRound(inProgressMatch ? inProgressMatch.round : 1);
         }
       }
     }
 
-    loadMatches();
+    loadCategoryData();
 
     const channel = supabase
-      .channel(`matches-cat-${selectedCategoryId}`)
+      .channel(`tourney-cat-${selectedCategoryId}`)
       .on(
         'postgres_changes',
         {
@@ -107,7 +142,19 @@ export default function TournamentDetailPage({
           filter: `category_id=eq.${selectedCategoryId}`,
         },
         () => {
-          loadMatches();
+          loadCategoryData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'entries',
+          filter: `category_id=eq.${selectedCategoryId}`,
+        },
+        () => {
+          loadCategoryData();
         }
       )
       .subscribe();
@@ -277,24 +324,251 @@ export default function TournamentDetailPage({
       {/* Category Pills Strip */}
       {categories.length > 0 && (
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedCategoryId(cat.id)}
-              className={`tap-target px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${
-                selectedCategoryId === cat.id
-                  ? 'btn-lime font-black shadow-md shadow-[rgba(198,255,61,0.2)]'
-                  : 'bg-[var(--surface-raised)] border-[var(--hairline)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
-              }`}
-            >
-              {cat.name}
-            </button>
-          ))}
+          {categories.map((cat) => {
+            const isUserInCat = userRegisteredCatIds.includes(cat.id);
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategoryId(cat.id)}
+                className={`tap-target px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border flex items-center gap-2 ${
+                  selectedCategoryId === cat.id
+                    ? 'btn-lime font-black shadow-md shadow-[rgba(198,255,61,0.2)]'
+                    : 'bg-[var(--surface-raised)] border-[var(--hairline)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                }`}
+              >
+                <span>{cat.name}</span>
+                {isUserInCat && (
+                  <span
+                    className={`w-2 h-2 rounded-full shrink-0 ${
+                      selectedCategoryId === cat.id ? 'bg-[#0B1020]' : 'bg-[var(--accent-lime)] glow-lime'
+                    }`}
+                    title="You are registered in this category"
+                  />
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
 
-      {/* Round View or Desktop Wide Bracket View */}
-      {roundsList.length > 0 ? (
+      {/* User Registration Banner for this Category */}
+      {(() => {
+        const myEntry = entries.find(
+          (e) => e.player1?.id === user?.id || e.player2?.id === user?.id
+        );
+        if (!myEntry) return null;
+
+        return (
+          <div className="p-4 rounded-2xl bg-[rgba(198,255,61,0.12)] border border-[rgba(198,255,61,0.35)] flex items-center justify-between shadow-lg shadow-[rgba(198,255,61,0.05)]">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-[var(--accent-lime)] text-[#0B1020] flex items-center justify-center font-black shrink-0">
+                <CheckCircle2 className="w-5 h-5 text-[#0B1020]" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-black text-[var(--accent-ink)] uppercase tracking-wide">
+                    You are registered in this tournament
+                  </p>
+                  {myEntry.seed && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--accent-lime)] text-[#0B1020] font-black">
+                      Seed #{myEntry.seed}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                  Category: <strong className="text-[var(--text-main)]">{selectedCategory?.name}</strong> • Rating: {myEntry.pair_rating || profile?.rating || 500} Elo
+                  {matches.length === 0 ? ' • Waiting for tournament draw to be published' : ' • Draw is live! Check your match below.'}
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] font-mono font-black uppercase px-2.5 py-1 rounded-full bg-[var(--surface-raised)] text-[var(--accent-ink)] border border-[var(--accent-lime)] shrink-0">
+              Confirmed Player
+            </span>
+          </div>
+        );
+      })()}
+
+      {/* Sub-Navigation: Matches vs Registered Players */}
+      <div className="flex items-center justify-between border-b border-[var(--hairline)] pb-2">
+        <div className="flex items-center gap-2">
+          {matches.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('matches')}
+              className={`tap-target px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                activeTab === 'matches'
+                  ? 'bg-[var(--accent-lime-muted)] text-[var(--accent-ink)] border border-[var(--accent-lime)] font-black'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+              }`}
+            >
+              <Trophy className="w-3.5 h-3.5" />
+              <span>Matches ({matches.length})</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('players')}
+            className={`tap-target px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              activeTab === 'players' || matches.length === 0
+                ? 'bg-[var(--accent-lime-muted)] text-[var(--accent-ink)] border border-[var(--accent-lime)] font-black'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>Registered Players ({entries.length})</span>
+          </button>
+        </div>
+
+        {/* Desktop View Switcher (Round List vs Wide Bracket) */}
+        {matches.length > 0 && activeTab === 'matches' && roundsList.length > 1 && (
+          <div className="hidden lg:flex items-center p-1 rounded-xl bg-[var(--surface-raised)] border border-[var(--hairline)]">
+            <button
+              onClick={() => setViewMode('round')}
+              className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                viewMode === 'round'
+                  ? 'bg-[var(--surface)] text-[var(--accent-ink)] shadow-sm'
+                  : 'text-[var(--text-muted)]'
+              }`}
+            >
+              <List className="w-3.5 h-3.5" />
+              <span>Round View</span>
+            </button>
+            <button
+              onClick={() => setViewMode('bracket')}
+              className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                viewMode === 'bracket'
+                  ? 'bg-[var(--surface)] text-[var(--accent-ink)] shadow-sm'
+                  : 'text-[var(--text-muted)]'
+              }`}
+            >
+              <Grid className="w-3.5 h-3.5" />
+              <span>Wide Bracket</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Tab Content: Registered Players or Matches */}
+      {activeTab === 'players' || matches.length === 0 ? (
+        entries.length > 0 ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between court-card-raised p-3 rounded-2xl">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-[var(--accent-ink)]" />
+                <span className="font-sport font-black text-sm uppercase tracking-wider text-[var(--text-main)]">
+                  Registered Roster ({entries.length})
+                </span>
+              </div>
+              <span className="text-[11px] text-[var(--text-muted)] font-mono">
+                {selectedCategory?.name}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {entries.map((entry) => {
+                const isMe =
+                  user &&
+                  (entry.player1?.id === user.id || entry.player2?.id === user.id);
+                const isDoubles = selectedCategory?.type === 'doubles' || !!entry.player2;
+
+                return (
+                  <div
+                    key={entry.id}
+                    className={`court-card p-4 transition-all relative overflow-hidden flex items-center justify-between ${
+                      isMe
+                        ? 'border-[var(--accent-lime)] ring-1 ring-[var(--accent-lime)] bg-[rgba(198,255,61,0.06)] shadow-md'
+                        : 'hover:border-[var(--hairline-strong)]'
+                    }`}
+                  >
+                    {isMe && (
+                      <div className="absolute top-0 bottom-0 left-0 w-1.5 bg-[var(--accent-lime)] glow-lime" />
+                    )}
+
+                    <div className="flex items-center gap-3 min-w-0 pr-2">
+                      {/* Avatar */}
+                      <div className="relative shrink-0">
+                        <Image
+                          width={96}
+                          height={96}
+                          src={`/avatars/${entry.player1?.avatar_id || 'cat-01'}.svg`}
+                          alt="Avatar"
+                          className="w-11 h-11 rounded-full border border-[var(--hairline)] bg-[var(--surface-raised)]"
+                        />
+                        {isDoubles && entry.player2 && (
+                          <Image
+                            width={96}
+                            height={96}
+                            src={`/avatars/${entry.player2?.avatar_id || 'cat-02'}.svg`}
+                            alt="Partner Avatar"
+                            className="w-7 h-7 rounded-full border border-[var(--surface)] bg-[var(--surface-raised)] absolute -bottom-1 -right-1"
+                          />
+                        )}
+                      </div>
+
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className={`text-sm font-black truncate ${isMe ? 'text-[var(--accent-ink)]' : 'text-[var(--text-main)]'}`}>
+                            {isDoubles
+                              ? `${entry.player1?.name || 'Player 1'} & ${entry.player2?.name || 'Player 2'}`
+                              : entry.player1?.name || entry.player1?.username || 'Player'}
+                          </p>
+                          {isMe && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-[var(--accent-lime)] text-[#0B1020]">
+                              YOU
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] mt-0.5">
+                          {entry.player1?.username && (
+                            <span className="font-mono text-[11px] truncate">
+                              @{entry.player1.username}
+                            </span>
+                          )}
+                          <span className="font-sport font-bold text-[11px] text-[var(--text-muted)] tabular-nums">
+                            {entry.pair_rating || entry.player1?.rating || 500} Elo
+                          </span>
+                          {entry.player1?.level && (
+                            <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] opacity-80">
+                              • {entry.player1.level}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Seed & Status Badge */}
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      {entry.seed ? (
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black font-sport bg-[var(--accent-lime-muted)] text-[var(--accent-ink)] border border-[var(--accent-lime)]">
+                          Seed #{entry.seed}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                          Unseeded
+                        </span>
+                      )}
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400">
+                        <CheckCircle2 className="w-3 h-3" />
+                        Confirmed
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <CatEmptyState
+            catNumber={8}
+            title="No Players Registered Yet"
+            message="No players have registered or been added to this category yet."
+            actionText={hasTournamentAccess ? 'Add Players in Portal' : undefined}
+            actionHref={hasTournamentAccess ? `/manage/tournaments/${tournament.id}` : undefined}
+          />
+        )
+      ) : roundsList.length > 0 ? (
         viewMode === 'bracket' ? (
           /* Desktop Wider Bracket View */
           <div className="space-y-4">
