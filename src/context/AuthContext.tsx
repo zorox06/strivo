@@ -151,12 +151,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [loadProfile, supabase, invalidateProfile]);
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-    profileRequest.current++;
-    setUser(null);
-    setProfile(null);
-    setManagedTournamentIds([]);
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Sign out error:', err);
+    } finally {
+      profileRequest.current++;
+      setUser(null);
+      setProfile(null);
+      setManagedTournamentIds([]);
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
+    }
   };
 
   const hasTournamentAccess = !!profile?.is_admin || managedTournamentIds.length > 0;

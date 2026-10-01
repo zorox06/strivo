@@ -80,6 +80,13 @@ export default function ProfileView({ username }: ProfileViewProps) {
 
   const isOwnProfile = !username || (ownProfile && ownProfile.username === username);
 
+  const handleSignOut = async () => {
+    await signOut();
+    if (typeof window !== 'undefined') {
+      window.location.href = '/';
+    }
+  };
+
   useEffect(() => {
     async function loadData() {
       setIsLoading(true);
@@ -102,6 +109,9 @@ export default function ProfileView({ username }: ProfileViewProps) {
         } else if (ownProfile) {
           setProfile(ownProfile);
           targetId = ownProfile.id;
+        } else {
+          setProfile(null);
+          return;
         }
 
         if (targetId) {
@@ -336,7 +346,7 @@ export default function ProfileView({ username }: ProfileViewProps) {
                   </button>
                   <button
                     type="button"
-                    onClick={signOut}
+                    onClick={handleSignOut}
                     className="tap-target px-3.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/25 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
                     title="Sign Out of Strivo"
                   >
@@ -745,7 +755,7 @@ export default function ProfileView({ username }: ProfileViewProps) {
         <div className="pt-4 flex justify-center">
           <button
             type="button"
-            onClick={signOut}
+            onClick={handleSignOut}
             className="tap-target px-5 py-2.5 rounded-xl btn-secondary text-xs text-rose-400 hover:text-rose-300 font-bold flex items-center gap-2"
           >
             <LogOut className="w-4 h-4" />
@@ -895,7 +905,7 @@ export default function ProfileView({ username }: ProfileViewProps) {
                   type="button"
                   onClick={() => {
                     setIsEditing(false);
-                    signOut();
+                    handleSignOut();
                   }}
                   className="text-xs font-bold text-rose-400 hover:text-rose-300 flex items-center gap-1.5 py-1"
                 >
