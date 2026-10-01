@@ -241,6 +241,10 @@ create policy "Admins and managers can modify categories"
       select 1 from public.tournament_managers
       where tournament_id = categories.tournament_id and player_id = auth.uid()
     )
+    or exists (
+      select 1 from public.tournaments t
+      where t.id = categories.tournament_id and t.created_by = auth.uid()
+    )
   );
 
 -- ENTRIES RLS
@@ -257,6 +261,23 @@ create policy "Admins and managers can manage entries"
       join public.tournament_managers tm on tm.tournament_id = c.tournament_id
       where c.id = entries.category_id and tm.player_id = auth.uid()
     )
+    or exists (
+      select 1 from public.categories c
+      join public.tournaments t on t.id = c.tournament_id
+      where c.id = entries.category_id and t.created_by = auth.uid()
+    )
+  );
+
+drop policy if exists "Players can register themselves" on public.entries;
+create policy "Players can register themselves"
+  on public.entries for insert with check (
+    auth.uid() = player1_id
+  );
+
+drop policy if exists "Players can withdraw their own entry" on public.entries;
+create policy "Players can withdraw their own entry"
+  on public.entries for delete using (
+    auth.uid() = player1_id or auth.uid() = player2_id
   );
 
 -- MATCHES RLS
@@ -274,6 +295,11 @@ create policy "Admins and full managers can update matches"
       where c.id = matches.category_id
         and tm.player_id = auth.uid()
         and tm.level = 'full'
+    )
+    or exists (
+      select 1 from public.categories c
+      join public.tournaments t on t.id = c.tournament_id
+      where c.id = matches.category_id and t.created_by = auth.uid()
     )
   );
 

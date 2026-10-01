@@ -8,6 +8,7 @@ export interface Tournament {
   date: string;
   status: 'draft' | 'published' | 'in_progress' | 'completed';
   rules: MatchRules;
+  created_by?: string | null;
   categories?: Category[];
 }
 export interface Category {

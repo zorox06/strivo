@@ -244,32 +244,25 @@ export default function ManageTournamentDetailPage({
       const isDoubles = selectedCategory.type === 'doubles';
       const hasPlayer2 = isDoubles && !forceSolo && !!foundPlayer2;
 
-      const pairRating = hasPlayer2 && foundPlayer2
-        ? Math.round((foundPlayer.rating + foundPlayer2.rating) / 2)
-        : foundPlayer.rating;
-
-      const { error: insErr } = await supabase.from('entries').insert({
-        category_id: selectedCategory.id,
-        player1_id: foundPlayer.id,
-        player2_id: hasPlayer2 && foundPlayer2 ? foundPlayer2.id : null,
-        seed: nextSeed,
-        pair_rating: pairRating,
-        is_solo: !hasPlayer2,
-      });
-
-      if (insErr) throw insErr;
-
-      await supabase.from('audit_log').insert({
-        tournament_id: tournament.id,
-        action: 'entry_added',
-        actor_id: user.id,
-        details: {
-          categoryName: selectedCategory.name,
-          player1Username: foundPlayer.username,
-          player2Username: hasPlayer2 && foundPlayer2 ? foundPlayer2.username : null,
-          isSolo: !hasPlayer2,
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/tournaments/${tournamentId}/entries`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
+        body: JSON.stringify({
+          categoryId: selectedCategory.id,
+          player1Id: foundPlayer.id,
+          player2Id: hasPlayer2 && foundPlayer2 ? foundPlayer2.id : null,
+          isSolo: !hasPlayer2,
+        }),
       });
+
+      if (!res.ok) {
+        const resJson = await res.json().catch(() => ({}));
+        throw new Error(resJson.error || 'Failed to add entry.');
+      }
 
       setFoundPlayer(null);
       setFoundPlayer2(null);
@@ -337,36 +330,28 @@ export default function ManageTournamentDetailPage({
 
   // Confirm partner assignment for an existing entry
   const handleConfirmAssignPartner = async (targetEntry: Entry) => {
-    if (!assignFoundPlayer || !selectedCategory || !tournament || !user) return;
+    if (!assignFoundPlayer || !selectedCategory || !user) return;
     setIsAssigning(true);
     setAssignError('');
 
     try {
-      const p1Rating = targetEntry.player1?.rating || 500;
-      const combinedRating = Math.round((p1Rating + assignFoundPlayer.rating) / 2);
-
-      const { error: updErr } = await supabase
-        .from('entries')
-        .update({
-          player2_id: assignFoundPlayer.id,
-          is_solo: false,
-          pair_rating: combinedRating,
-        })
-        .eq('id', targetEntry.id);
-
-      if (updErr) throw updErr;
-
-      await supabase.from('audit_log').insert({
-        tournament_id: tournament.id,
-        action: 'entry_partner_assigned',
-        actor_id: user.id,
-        details: {
-          entryId: targetEntry.id,
-          categoryName: selectedCategory.name,
-          player1Username: targetEntry.player1?.username,
-          player2Username: assignFoundPlayer.username,
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/tournaments/${tournamentId}/entries`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
+        body: JSON.stringify({
+          entryId: targetEntry.id,
+          player2Id: assignFoundPlayer.id,
+        }),
       });
+
+      if (!res.ok) {
+        const resJson = await res.json().catch(() => ({}));
+        throw new Error(resJson.error || 'Failed to assign partner.');
+      }
 
       setAssigningEntryId(null);
       setAssignFoundPlayer(null);
@@ -385,8 +370,21 @@ export default function ManageTournamentDetailPage({
     if (!confirm(`Are you sure you want to remove ${p1Name} from this category?`)) return;
 
     try {
-      const { error } = await supabase.from('entries').delete().eq('id', entry.id);
-      if (error) throw error;
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/tournaments/${tournamentId}/entries?entryId=${entry.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+      });
+
+      if (!res.ok) {
+        // Fallback to client-side supabase delete
+        const { error } = await supabase.from('entries').delete().eq('id', entry.id);
+        if (error) throw error;
+      }
+
       await refreshCategoryData();
     } catch (err: unknown) {
       setSearchError(errorMessage(err, 'Failed to remove entry.'));

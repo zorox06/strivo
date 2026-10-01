@@ -27,6 +27,7 @@ interface AuthContextType {
   isLoading: boolean;
   hasTournamentAccess: boolean;
   managedTournamentIds: string[];
+  canManageTournament: (tournamentId: string, createdBy?: string | null) => boolean;
   refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -37,6 +38,7 @@ const AuthContext = createContext<AuthContextType>({
   isLoading: true,
   hasTournamentAccess: false,
   managedTournamentIds: [],
+  canManageTournament: () => false,
   refreshProfile: async () => {},
   signOut: async () => {},
 });
@@ -67,14 +69,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (prof) {
         setProfile(prof as UserProfile);
 
-        // 2. Fetch manager roles
-        const { data: managers } = await supabase
-          .from('tournament_managers')
-          .select('tournament_id')
-          .eq('player_id', authUser.id);
+        // 2. Fetch manager roles and created tournaments
+        const [{ data: managers }, { data: createdTourneys }] = await Promise.all([
+          supabase
+            .from('tournament_managers')
+            .select('tournament_id')
+            .eq('player_id', authUser.id),
+          supabase
+            .from('tournaments')
+            .select('id')
+            .eq('created_by', authUser.id),
+        ]);
 
         if (request !== profileRequest.current) return;
-        setManagedTournamentIds(managers?.map((m) => m.tournament_id) ?? []);
+        const allIds = new Set<string>();
+        managers?.forEach((m) => allIds.add(m.tournament_id));
+        createdTourneys?.forEach((t) => allIds.add(t.id));
+        setManagedTournamentIds(Array.from(allIds));
       } else {
         setProfile(null);
         setManagedTournamentIds([]);
@@ -168,6 +179,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const hasTournamentAccess = !!profile?.is_admin || managedTournamentIds.length > 0;
 
+  const canManageTournament = useCallback(
+    (tournamentId: string, createdBy?: string | null) => {
+      if (profile?.is_admin) return true;
+      if (managedTournamentIds.includes(tournamentId)) return true;
+      if (createdBy && user?.id && createdBy === user.id) return true;
+      return false;
+    },
+    [profile?.is_admin, managedTournamentIds, user?.id]
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -176,6 +197,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         hasTournamentAccess,
         managedTournamentIds,
+        canManageTournament,
         refreshProfile,
         signOut,
       }}
